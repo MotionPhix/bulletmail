@@ -41,7 +41,14 @@ const form = useForm({
 
 const submit = () => {
   form.post(route('register'), {
-    onFinish: () => form.reset('password', 'password_confirmation'),
+    onSuccess: () => form.reset('password', 'password_confirmation'),
+    onError: (err) => {
+
+      console.log(err);
+
+    },
+    preserveScroll: true,
+    preserveState: true,
   });
 };
 </script>
@@ -122,6 +129,19 @@ const submit = () => {
 
             <InputError :message="form.errors.industry" />
           </div>
+
+          <div class="grid gap-y-1.5 sm:col-span-2">
+            <Label>Organization website</Label>
+
+            <Input
+              type="url"
+              class="w-full"
+              v-model="form.website"
+              placeholder="https://example.com"
+            />
+
+            <InputError :message="form.errors.website" />
+          </div>
         </div>
 
         <!-- Account Details -->
@@ -155,7 +175,7 @@ const submit = () => {
 
         <!-- Terms -->
         <div class="grid">
-          <Label class="text-sm flex items-center space-x-1">
+          <Label class="text-sm flex items-start space-x-1">
             <Checkbox v-model="form.terms" />
             <span>
               I agree to the Terms of Service and Privacy Policy

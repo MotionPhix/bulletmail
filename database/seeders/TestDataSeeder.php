@@ -18,16 +18,39 @@ class TestDataSeeder extends Seeder
       'email' => 'test@example.com',
       'first_name' => 'Test',
       'last_name' => 'User',
+      'organization_name' => 'Acme Corp',
+      'organization_size' => '11-50',
+      'industry' => 'technology',
+      'website' => 'https://www.acmecorp.com',
+      'onboarding_completed_at' => now(),
     ]);
 
     // Create team with owner
     $team = Team::factory()
       ->withOwner($owner)
-      ->create(['name' => 'Test Team']);
+      ->create([
+        'name' => $owner->organization_name,
+        'personal_team' => true,
+      ]);
+
+    // Set current team
+    $owner->update(['current_team_id' => $team->id]);
 
     // Create additional team members
     User::factory()
       ->count(2)
+      ->sequence(
+        [
+          'organization_name' => 'Marketing Team',
+          'organization_size' => '1-10',
+          'industry' => 'marketing',
+        ],
+        [
+          'organization_name' => 'Sales Team',
+          'organization_size' => '11-50',
+          'industry' => 'sales',
+        ]
+      )
       ->create()
       ->each(function ($user) use ($team) {
         $team->users()->attach($user, ['role' => 'member']);

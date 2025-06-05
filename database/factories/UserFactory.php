@@ -25,6 +25,8 @@ class UserFactory extends Factory
    */
   public function definition(): array
   {
+    $companyName = fake()->company();
+
     return [
       'first_name' => fake()->firstName(),
       'last_name' => fake()->lastName(),
@@ -32,7 +34,22 @@ class UserFactory extends Factory
       'email_verified_at' => now(),
       'password' => static::$password ??= Hash::make('password'),
       'remember_token' => Str::random(10),
+      'organization_name' => $companyName,
+      'organization_size' => fake()->randomElement(['1-10', '11-50', '51-200', '201-500', '500+']),
+      'industry' => fake()->randomElement([
+        'technology',
+        'e-commerce',
+        'healthcare',
+        'education',
+        'finance',
+        'marketing',
+        'retail',
+        'other'
+      ]),
+      'website' => 'https://www.' . Str::slug($companyName) . '.com',
+      'account_status' => 'active',
       'current_team_id' => null,
+      'onboarding_completed_at' => null,
     ];
   }
 
@@ -51,15 +68,11 @@ class UserFactory extends Factory
    */
   public function withPersonalTeam(?callable $callback = null): static
   {
-    if (!Features::hasTeamFeatures()) {
-      return $this->state([]);
-    }
-
     return $this->has(
       Team::factory()
         ->state(fn(array $attributes, User $user) => [
-          'name' => $user->name . '\'s Team',
-          'user_id' => $user->id,
+          'name' => $user->organization_name,
+          'owner_id' => $user->id,
           'personal_team' => true,
         ])
         ->when(is_callable($callback), $callback),

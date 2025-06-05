@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\{Model, SoftDeletes, Factories\HasFactory};
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasOne, HasMany};
+use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -95,66 +95,6 @@ class Team extends Model
     'personal_team' => 'boolean'
   ];
 
-  public function settings(): HasOne
-  {
-    return $this->hasOne(TeamSetting::class)->withDefault([
-      'email_settings' => [],
-      'branding' => [],
-      'quotas' => [
-        'subscriber_limit' => 1000,
-        'campaign_limit' => 100,
-        'monthly_email_limit' => 10000
-      ],
-      'notifications' => [
-        'email' => true,
-        'in_app' => true
-      ],
-      'marketing' => [
-        'enabled' => true
-      ],
-      'company' => [],
-      'sender' => []
-    ]);
-  }
-
-  // Update the settings getter methods
-  public function getEmailSettings(): array
-  {
-    return $this->settings->email_settings ?? [];
-  }
-
-  public function getBrandingSettings(): array
-  {
-    return $this->settings->branding ?? [];
-  }
-
-  public function getQuotaSettings(): array
-  {
-    return $this->settings->quotas ?? [];
-  }
-
-  // Add settings update methods
-  public function updateEmailSettings(array $settings): void
-  {
-    $this->settings->update([
-      'email_settings' => array_merge($this->getEmailSettings(), $settings)
-    ]);
-  }
-
-  public function updateBrandingSettings(array $settings): void
-  {
-    $this->settings->update([
-      'branding' => array_merge($this->getBrandingSettings(), $settings)
-    ]);
-  }
-
-  public function updateQuotaSettings(array $settings): void
-  {
-    $this->settings->update([
-      'quotas' => array_merge($this->getQuotaSettings(), $settings)
-    ]);
-  }
-
   // Relationships
   public function owner(): BelongsTo
   {
@@ -225,5 +165,26 @@ class Team extends Model
       // Update Spatie role
       $user->syncRoles([$role === 'admin' ? 'team-admin' : 'team-member']);
     });
+  }
+
+  public function organization(): BelongsTo
+  {
+    return $this->belongsTo(Organization::class);
+  }
+
+  // Replace existing settings methods with organization methods
+  public function getBrandingSettings(): array
+  {
+    return $this->organization->getBrandingConfig();
+  }
+
+  public function getEmailSettings(): array
+  {
+    return $this->organization->getEmailConfig();
+  }
+
+  public function getQuotaSettings(): array
+  {
+    return $this->organization->getQuotaLimits();
   }
 }

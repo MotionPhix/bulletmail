@@ -18,10 +18,6 @@ return new class extends Migration
       $table->string('last_name');
       $table->string('email')->unique();
       $table->string('account_status')->default('active');
-      $table->string('organization_name');
-      $table->string('organization_size');
-      $table->string('industry');
-      $table->string('website')->nullable();
       $table->foreignId('current_team_id')->nullable();
       $table->timestamp('email_verified_at')->nullable();
       $table->timestamp('onboarding_completed_at')->nullable();

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\InvitedTeamMember;
-use App\Models\Team;
+use App\Models\Organization;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -40,22 +40,16 @@ class RegisteredUserController extends Controller
 
     try {
       $user = $this->createUser($request->all());
+      [$organization, $team] = $this->createOrganizationAndTeam($user, $request->all());
 
-      $team = $user->createTeam([
-        'name' => $request->organization_name,
-        'personal_team' => true,
-      ]);
+      $user->update(['current_team_id' => $team->id]);
 
-      // Sync the user's role for this specific team
-      $team->users()->attach($user, ['role' => 'owner']);
-
-      $this->createTeamSettings($team, $request->all());
+      // Create user-specific settings only
       $this->createUserSettings($user, $request->all());
 
       event(new Registered($user));
 
       DB::commit();
-
       Auth::login($user);
 
       return to_route('dashboard');
@@ -167,88 +161,55 @@ class RegisteredUserController extends Controller
     return $user;
   }
 
-  protected function createTeamSettings(Team $team, array $input): void
+  protected function createOrganizationAndTeam(User $user, array $input): array
   {
-    $team->settings()->create([
-      'email_settings' => [
-        'from_name' => null,
-        'from_email' => null,
-        'reply_to' => null,
-        'footer_text' => null
-      ],
-      'branding' => [
-        'logo_url' => null,
-        'colors' => [
-          'primary' => '#4F46E5',
-          'secondary' => '#7C3AED'
-        ],
-        'email_header' => null,
-        'email_footer' => null
-      ],
-      'quotas' => [
-        'subscriber_limit' => 1000,
-        'campaign_limit' => 100,
-        'monthly_email_limit' => 10000,
-        'daily_email_limit' => 1000
-      ],
-      'company' => [
-        'name' => $input['organization_name'],
-        'industry' => $input['industry'],
-        'size' => $input['organization_size'],
-        'website' => $input['website'] ?? null,
-      ]
+    $organization = Organization::create([
+      'name' => $input['organization_name'],
+      'size' => $input['organization_size'],
+      'industry' => $input['industry'],
+      'website' => $input['website'] ?? null,
+      'default_from_name' => $user->name,
+      'default_from_email' => $user->email
     ]);
+
+    if (isset($input['logo'])) {
+      $organization->addMedia($input['logo'])
+        ->toMediaCollection('logo');
+    }
+
+    $team = $organization->teams()->create([
+      'name' => $input['organization_name'] . ' Team',
+      'owner_id' => $user->id,
+      'personal_team' => true
+    ]);
+
+    return [$organization, $team];
   }
 
   protected function createUserSettings(User $user, array $input): void
   {
-    $user->settings()->create([
-      'preferences' => [
-        'language' => 'en',
-        'timezone' => 'UTC',
-      ],
-      'notification_settings' => [
-        'email_notifications' => true,
-        'in_app_notifications' => true,
-      ],
-      'email_settings' => [
-        'from_name' => null,
-        'reply_to' => null,
-      ],
-      'sender_settings' => [
-        'default_sender_name' => null,
-        'default_sender_email' => null,
-        'email_verified' => false,
-        'verification_token' => null,
-      ],
-      'marketing_settings' => [
-        'email_updates' => true,
-        'product_news' => true,
-        'marketing_communications' => true,
-      ],
-      'company_settings' => [
-        'company_name' => $input['organization_name'],
-        'industry' => $input['industry'],
-        'company_size' => $input['organization_size'],
-        'website' => $input['website'] ?? null,
-        'phone' => $input['phone'] ?? null,
-        'role' => null,
-      ],
-      'branding_settings' => [
-        'logo_url' => null,
-        'primary_color' => '#4F46E5',
-        'accent_color' => '#818CF8',
-      ],
-      'subscription_settings' => [
-        'plan' => 'free',
-        'email_quota' => 100,
-        'features' => [
-          'custom_domain' => false,
-          'api_access' => false,
-          'advanced_analytics' => false,
-        ],
-        'trial_ends_at' => now()->addDays(14),
-      ],
+    Setting::updateUserSettings($user, 'preferences', [
+      'language' => 'en',
+      'timezone' => 'UTC',
+    ]);
+
+    Setting::updateUserSettings($user, 'notifications', [
+      'email_notifications' => true,
+      'in_app_notifications' => true,
+    ]);
+
+    Setting::updateUserSettings($user, 'company', [
+      'company_name' => $input['organization_name'],
+      'industry' => $input['industry'],
+      'company_size' => $input['organization_size'],
+      'website' => $input['website'] ?? null,
+      'phone' => $input['phone'] ?? null,
+      'title' => $input['title'] ?? null,
+    ]);
+
+    Setting::updateUserSettings($user, 'email_settings', [
+      'from_name' => $input['title'] ?? null,
+      'reply_to' => $input['title'] ?? null,
     ]);
   }
 }

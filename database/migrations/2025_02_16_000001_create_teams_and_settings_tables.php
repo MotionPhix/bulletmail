@@ -10,7 +10,8 @@ return new class extends Migration {
     Schema::create('teams', function (Blueprint $table) {
       $table->id();
       $table->uuid('uuid')->unique();
-      $table->foreignId('owner_id')->constrained('users')->onDelete('cascade');
+      $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+      $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
       $table->string('name');
       $table->boolean('personal_team');
       $table->timestamps();
@@ -26,26 +27,10 @@ return new class extends Migration {
 
       $table->unique(['team_id', 'user_id']);
     });
-
-    Schema::create('team_settings', function (Blueprint $table) {
-      $table->id();
-      $table->foreignId('team_id')->constrained()->onDelete('cascade');
-      $table->json('email_settings')->nullable();
-      $table->json('branding')->nullable();
-      $table->json('quotas')->nullable();
-      $table->json('notifications')->nullable();
-      $table->json('marketing')->nullable();
-      $table->json('company')->nullable();
-      $table->json('sender')->nullable();
-      $table->timestamps();
-
-      $table->index('team_id');
-    });
   }
 
   public function down(): void
   {
-    Schema::dropIfExists('team_settings');
     Schema::dropIfExists('team_user');
     Schema::dropIfExists('teams');
   }

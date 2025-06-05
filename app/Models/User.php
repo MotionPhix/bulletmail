@@ -260,10 +260,12 @@ class User extends Authenticatable implements MustVerifyEmail
       $this->trackingEvents()->where('type', 'sent')->count() < 1000;
   }
 
-  public function createTeam(array $input): mixed
+  public function createTeam(array|string $input): Team
   {
+    $teamName = is_array($input) ? $input['organization_name'] : $input;
+
     $team = $this->ownedTeams()->create([
-      'name' => $input['organization_name'],
+      'name' => $teamName,
       'personal_team' => true,
     ]);
 

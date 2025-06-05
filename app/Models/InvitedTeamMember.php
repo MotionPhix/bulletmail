@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Events\TeamInvitationAccepted;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 
 class InvitedTeamMember extends Model
 {
@@ -62,16 +63,6 @@ class InvitedTeamMember extends Model
     'is_expired',
     'can_resend',
     'days_until_expiry'
-  ];
-
-  /**
-   * The event map for the model.
-   *
-   * @var array<string, string>
-   */
-  protected $dispatchesEvents = [
-    'created' => \App\Events\TeamInvitationCreated::class,
-    'updated' => \App\Events\TeamInvitationUpdated::class,
   ];
 
   /**
@@ -133,7 +124,7 @@ class InvitedTeamMember extends Model
   /**
    * Get the can resend attribute.
    */
-  protected function canResend(): Attribute
+  protected function canResendInvitation(): Attribute
   {
     return Attribute::get(function () {
       if ($this->accepted_at || $this->send_count >= 3) {
@@ -193,7 +184,7 @@ class InvitedTeamMember extends Model
       // Add user to team with the assigned role
       $this->team->users()->attach($user, ['role' => $this->role]);
 
-      // Assign the appropriate Spatie role based on team role
+      // Assign the appropriate Spatie role
       switch ($this->role) {
         case 'admin':
           $user->assignRole('team-admin');
@@ -208,15 +199,15 @@ class InvitedTeamMember extends Model
         'accepted_at' => now(),
       ]);
 
-      // Fire event for accepted invitation
-      event(new TeamInvitationAccepted($this));
+      event(new TeamInvitationAccepted($this, $this->team, $user));
     });
   }
 
   /**
    * Scope pending invitations.
    */
-  public function scopePending(Builder $query): void
+  #[Scope]
+  public function pending(Builder $query): void
   {
     $query->whereNull('accepted_at')
       ->where('expires_at', '>', now());
@@ -225,7 +216,8 @@ class InvitedTeamMember extends Model
   /**
    * Scope expired invitations.
    */
-  public function scopeExpired(Builder $query): void
+  #[Scope]
+  public function expired(Builder $query): void
   {
     $query->whereNull('accepted_at')
       ->where('expires_at', '<=', now());
@@ -234,7 +226,8 @@ class InvitedTeamMember extends Model
   /**
    * Scope accepted invitations.
    */
-  public function scopeAccepted(Builder $query): void
+  #[Scope]
+  public function accepted(Builder $query): void
   {
     $query->whereNotNull('accepted_at');
   }
@@ -242,7 +235,8 @@ class InvitedTeamMember extends Model
   /**
    * Scope invitations that can be resent.
    */
-  public function scopeCanResend(Builder $query): void
+  #[Scope]
+  public function canResend(Builder $query): void
   {
     $query->whereNull('accepted_at')
       ->where('send_count', '<', 3)
@@ -271,20 +265,6 @@ class InvitedTeamMember extends Model
   }
 
   /**
-   * Boot the model.
-   */
-  protected static function boot()
-  {
-    parent::boot();
-
-    static::creating(function ($invitation) {
-      $invitation->expires_at = $invitation->expires_at ?? now()->addDays(7);
-      $invitation->status = $invitation->status ?? 'pending';
-      $invitation->send_count = $invitation->send_count ?? 0;
-    });
-  }
-
-  /**
    * Route notifications for the mail channel.
    */
   public function routeNotificationForMail(): string
@@ -309,6 +289,12 @@ class InvitedTeamMember extends Model
   protected static function booted()
   {
     parent::boot();
+
+    static::creating(function ($invitation) {
+      $invitation->expires_at = $invitation->expires_at ?? now()->addDays(7);
+      $invitation->status = $invitation->status ?? 'pending';
+      $invitation->send_count = $invitation->send_count ?? 0;
+    });
 
     static::created(function ($invitation) {
       $invitation->track('invitation_created');
