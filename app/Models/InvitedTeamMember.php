@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use App\Events\TeamInvitationAccepted;
 
 class InvitedTeamMember extends Model
 {
@@ -185,12 +187,30 @@ class InvitedTeamMember extends Model
   /**
    * Accept the team invitation.
    */
-  public function accept(): void
+  public function accept(User $user): void
   {
-    $this->update([
-      'accepted_at' => now(),
-      'status' => 'accepted'
-    ]);
+    DB::transaction(function () use ($user) {
+      // Add user to team with the assigned role
+      $this->team->users()->attach($user, ['role' => $this->role]);
+
+      // Assign the appropriate Spatie role based on team role
+      switch ($this->role) {
+        case 'admin':
+          $user->assignRole('team-admin');
+          break;
+        case 'member':
+          $user->assignRole('team-member');
+          break;
+      }
+
+      $this->update([
+        'status' => 'accepted',
+        'accepted_at' => now(),
+      ]);
+
+      // Fire event for accepted invitation
+      event(new TeamInvitationAccepted($this));
+    });
   }
 
   /**

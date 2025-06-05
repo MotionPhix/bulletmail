@@ -2,21 +2,21 @@
 
 namespace App\Models;
 
+use App\Notifications\TeamInvitation;
 use App\Traits\HasSubscription;
 use App\Traits\HasEmailQuota;
 use App\Traits\HasBranding;
 use App\Traits\HasAnalytics;
 use App\Traits\HasTeams;
-use App\Traits\HasRegistrationSteps;
 use App\Traits\HasUuid;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Fortify\TwoFactorAuthenticatable;
-use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -30,11 +30,8 @@ class User extends Authenticatable implements MustVerifyEmail
     HasBranding,
     HasAnalytics,
     HasTeams,
-    HasRegistrationSteps,
     HasFactory,
-    HasProfilePhoto,
     Notifiable,
-    TwoFactorAuthenticatable,
     SoftDeletes;
 
   /**
@@ -45,10 +42,11 @@ class User extends Authenticatable implements MustVerifyEmail
     'last_name',
     'email',
     'password',
-    'completed_registration_steps',
     'account_status',
-    'last_login_at',
-    'last_login_ip',
+    'organization_name',
+    'organization_size',
+    'industry',
+    'website',
   ];
 
   /**
@@ -57,8 +55,6 @@ class User extends Authenticatable implements MustVerifyEmail
   protected $hidden = [
     'password',
     'remember_token',
-    'two_factor_recovery_codes',
-    'two_factor_secret',
   ];
 
   /**
@@ -68,9 +64,8 @@ class User extends Authenticatable implements MustVerifyEmail
   {
     return [
       'email_verified_at' => 'datetime',
+      'onboarding_completed_at' => 'datetime',
       'password' => 'hashed',
-      'completed_registration_steps' => 'array',
-      'last_login_at' => 'datetime',
     ];
   }
 
@@ -78,39 +73,9 @@ class User extends Authenticatable implements MustVerifyEmail
    * The accessors to append to the model's array form.
    */
   protected $appends = [
-    'profile_photo_url',
     'name',
     'account_status',
-    'registration_progress'
   ];
-
-  // Update registration step constants
-  public const REGISTRATION_STEP_ACCOUNT = 'account';
-  public const REGISTRATION_STEP_ORGANIZATION = 'organization';
-  public const REGISTRATION_STEP_TEAM = 'team';
-  public const REGISTRATION_STEP_VERIFICATION = 'verification';
-
-  public static function getRegistrationSteps(): array
-  {
-    return [
-      self::REGISTRATION_STEP_ACCOUNT => [
-        'title' => 'Account',
-        'description' => 'Create your account'
-      ],
-      self::REGISTRATION_STEP_ORGANIZATION => [
-        'title' => 'Organization',
-        'description' => 'Tell us about your organization'
-      ],
-      self::REGISTRATION_STEP_TEAM => [
-        'title' => 'Team',
-        'description' => 'Invite your team members'
-      ],
-      self::REGISTRATION_STEP_VERIFICATION => [
-        'title' => 'Verification',
-        'description' => 'Verify your email address'
-      ]
-    ];
-  }
 
   // Keep existing relationships
   public function campaigns()
@@ -121,11 +86,6 @@ class User extends Authenticatable implements MustVerifyEmail
   public function templates()
   {
     return $this->hasMany(EmailTemplate::class);
-  }
-
-  public function registrationData()
-  {
-    return $this->hasMany(RegistrationData::class);
   }
 
   // Team relationships
@@ -235,21 +195,11 @@ class User extends Authenticatable implements MustVerifyEmail
     });
   }
 
-  public function isTrialStatus(): Attribute
-  {
-    return Attribute::get(function () {
-      $trialEndsAt = $this->settings->subscription_settings['trial_ends_at'] ?? null;
-      return $trialEndsAt && now()->parse($trialEndsAt)->isFuture();
-    });
-  }
-
   public function subscriptionStatus(): Attribute
   {
     return Attribute::get(function () {
-      $trialEndsAt = $this->settings->subscription_settings['trial_ends_at'] ?? null;
-      $isTrialActive = $trialEndsAt && now()->parse($trialEndsAt)->isFuture();
 
-      if ($isTrialActive) {
+      if ($this->isOnTrial()) {
         return 'trial';
       }
 
@@ -268,32 +218,8 @@ class User extends Authenticatable implements MustVerifyEmail
 
   public function canSendEmails(): bool
   {
-    $trialEndsAt = $this->settings->subscription_settings['trial_ends_at'] ?? null;
-    $isTrialActive = $trialEndsAt && now()->parse($trialEndsAt)->isFuture();
-
-    return $this->registration_status === 'completed' &&
-      $this->hasEmailQuotaRemaining() &&
-      ($this->hasActiveSubscription() || $isTrialActive);
-  }
-
-  // Add new registration-related computed attribute
-  public function registrationProgress(): Attribute
-  {
-    return Attribute::get(function () {
-      $steps = array_keys(self::getRegistrationSteps());
-      $completedSteps = $this->completed_registration_steps ?? [];
-      $currentStep = $this->getCurrentRegistrationStep();
-
-      return [
-        'current_step' => $currentStep,
-        'current_step_index' => array_search($currentStep, $steps),
-        'completed_steps' => $completedSteps,
-        'total_steps' => count($steps),
-        'percentage' => count($steps) > 0
-          ? (count($completedSteps) / count($steps)) * 100
-          : 0,
-      ];
-    });
+    return $this->hasEmailQuotaRemaining() &&
+      ($this->hasActiveSubscription() || $this->isOnTrial());
   }
 
   public function isOnTrial(): bool
@@ -303,17 +229,10 @@ class User extends Authenticatable implements MustVerifyEmail
   }
 
   // Keep existing methods
-  public function scopeActive($query)
+  #[Scope]
+  public function active(Builder $query)
   {
     return $query->where('account_status', 'active');
-  }
-
-  public function recordLogin(string $ip)
-  {
-    $this->update([
-      'last_login_at' => now(),
-      'last_login_ip' => $ip
-    ]);
   }
 
   public function hasEmailQuotaAvailable(): bool
@@ -341,51 +260,31 @@ class User extends Authenticatable implements MustVerifyEmail
       $this->trackingEvents()->where('type', 'sent')->count() < 1000;
   }
 
-  // Add registration-specific methods
-  public function hasCompletedStep(string $step): bool
+  public function createTeam(array $input): mixed
   {
-    return in_array($step, $this->completed_registration_steps ?? []);
-  }
-
-  public function getCurrentRegistrationStep(): string
-  {
-    $steps = array_keys(self::getRegistrationSteps());
-    $completedSteps = $this->completed_registration_steps ?? [];
-
-    foreach ($steps as $step) {
-      if (!in_array($step, $completedSteps)) {
-        return $step;
-      }
-    }
-
-    return end($steps);
-  }
-
-  public function completeRegistrationStep(string $step, array $data = []): void
-  {
-    $this->registrationData()->create([
-      'step' => $step,
-      'data' => $data,
-      'completed_at' => now(),
+    $team = $this->ownedTeams()->create([
+      'name' => $input['organization_name'],
+      'personal_team' => true,
     ]);
 
-    $completedSteps = $this->completed_registration_steps ?? [];
-    $completedSteps[] = $step;
-    $this->completed_registration_steps = array_unique($completedSteps);
-
-    if ($step === self::REGISTRATION_STEP_VERIFICATION) {
-      $this->registration_status = 'completed';
-      $this->registration_completed_at = now();
-
-      // Set trial period
-      $this->settings->update([
-        'subscription_settings' => array_merge(
-          $this->settings->subscription_settings ?? [],
-          ['trial_ends_at' => now()->addDays(14)->format('Y-m-d H:i:s')]
-        )
-      ]);
-    }
-
+    $this->current_team_id = $team->id;
     $this->save();
+
+    return $team;
+  }
+
+  public function processTeamInvitations($team, array $members): void
+  {
+    foreach ($members as $member) {
+      $invitation = InvitedTeamMember::invite([
+        'user_id' => $this->id,
+        'team_id' => $team->id,
+        'email' => $member['email'],
+        'role' => $member['role'],
+      ]);
+
+      // Queue the invitation email
+      $invitation->notify(new TeamInvitation($this->user, $team));
+    }
   }
 }

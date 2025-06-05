@@ -1,0 +1,19 @@
+/*// Team members
+'team_members' => ['nullable', 'array', 'max:10'], // Limit initial invites
+'team_members.*.email' => [
+  'required',
+  'email',
+  'distinct',
+  'different:email', // Can't invite self
+  function ($attribute, $value, $fail) use ($input) {
+    if ($this->isDisposableEmail($value)) {
+      $fail('Please use valid business email addresses for team members.');
+    }
+  }
+],
+'team_members.*.role' => ['required', 'string', 'in:admin,editor,member'],
+*/
+
+
+/*'team_members.*.email.different' => 'You cannot invite yourself to the team.',
+'team_members.*.email.distinct' => 'Duplicate email addresses found in team invitations.',*/

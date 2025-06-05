@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\{Model, SoftDeletes, Factories\HasFactory};
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasOne, HasMany};
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Traits\HasRoles;
 
 class Team extends Model
@@ -213,5 +214,16 @@ class Team extends Model
   {
     $settings = $this->getEmailSettings();
     return !empty($settings['from_email']) && !empty($settings['from_name']);
+  }
+
+  public function updateMemberRole(User $user, string $role): void
+  {
+    DB::transaction(function () use ($user, $role) {
+      // Update team role
+      $this->users()->updateExistingPivot($user->id, ['role' => $role]);
+
+      // Update Spatie role
+      $user->syncRoles([$role === 'admin' ? 'team-admin' : 'team-member']);
+    });
   }
 }

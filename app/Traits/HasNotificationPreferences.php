@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Concerns;
+namespace App\Traits;
 
 use App\Models\NotificationPreference;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
