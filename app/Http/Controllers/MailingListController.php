@@ -6,35 +6,27 @@ use App\Models\MailingList;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Services\MailingListService;
 
 class MailingListController extends Controller
 {
   use AuthorizesRequests;
+  protected MailingListService $mailingListService;
+
+  public function __construct(MailingListService $mailingListService)
+  {
+    $this->mailingListService = $mailingListService;
+  }
 
   public function index(Request $request)
   {
-    $lists = MailingList::forTeam($request->user()->currentTeam)
+    $lists = $request->user()->currentTeam->mailingLists()
       ->withCount('subscribers')
       ->latest()
-      ->get()
-      ->map(fn($list) => [
-        'id' => $list->id,
-        'name' => $list->name,
-        'description' => $list->description,
-        'subscriberCount' => $list->subscribers_count,
-        'is_default' => $list->is_default,
-        'created_at' => $list->created_at
-      ]);
+      ->paginate();
 
-    return Inertia::render('MailingLists/Index', [
+    return Inertia::render('Lists/Index', [
       'lists' => $lists
-    ]);
-  }
-
-  public function create()
-  {
-    return Inertia::render('MailingLists/Form', [
-      'list' => new MailingList()
     ]);
   }
 
@@ -43,84 +35,110 @@ class MailingListController extends Controller
     $validated = $request->validate([
       'name' => ['required', 'string', 'max:255'],
       'description' => ['nullable', 'string'],
-      'is_default' => ['boolean'],
-      'settings' => ['nullable', 'array']
+      'double_opt_in' => ['boolean'],
+      'welcome_email_id' => ['nullable', 'exists:campaigns,id'],
     ]);
 
-    $list = MailingList::create(array_merge($validated, [
-      'team_id' => $request->user()->currentTeam->id
-    ]));
+    $list = $this->mailingListService->create(
+      $request->user()->currentTeam,
+      $validated
+    );
 
     return back()->with('success', 'Mailing list created successfully.');
   }
 
-  public function edit(MailingList $mailingList)
+  public function show(MailingList $list)
   {
-    $this->authorize('update', $mailingList);
+    $this->authorize('view', $list);
 
-    return Inertia::render('MailingLists/Form', [
-      'list' => [
-        'id' => $mailingList->id,
-        'name' => $mailingList->name,
-        'description' => $mailingList->description,
-        'is_default' => $mailingList->is_default,
-        'settings' => $mailingList->settings,
-      ],
+    $subscribers = $list->subscribers()
+      ->latest()
+      ->paginate();
+
+    return Inertia::render('Lists/Show', [
+      'list' => $list,
+      'subscribers' => $subscribers,
+      'stats' => $this->mailingListService->getStats($list)
     ]);
   }
 
-  public function update(Request $request, MailingList $mailingList)
+  public function update(Request $request, MailingList $list)
   {
-    $this->authorize('update', $mailingList);
+    $this->authorize('update', $list);
 
     $validated = $request->validate([
       'name' => ['required', 'string', 'max:255'],
       'description' => ['nullable', 'string'],
-      'is_default' => ['boolean'],
+      'double_opt_in' => ['boolean'],
+      'welcome_email_id' => ['nullable', 'exists:campaigns,id'],
       'settings' => ['nullable', 'array']
     ]);
 
-    $mailingList->update($validated);
+    $this->mailingListService->update($list, $validated);
 
     return back()->with('success', 'Mailing list updated successfully.');
   }
 
-  public function show(MailingList $mailingList)
+  public function destroy(MailingList $list)
   {
-    $this->authorize('view', $mailingList);
+    $this->authorize('delete', $list);
 
-    return Inertia::render('MailingLists/Show', [
-      'list' => [
-        'id' => $mailingList->id,
-        'name' => $mailingList->name,
-        'description' => $mailingList->description,
-        'is_default' => $mailingList->is_default,
-        'subscriberCount' => $mailingList->subscribers()->count(),
-        'created_at' => $mailingList->created_at,
-        'updated_at' => $mailingList->updated_at,
-      ],
-      'subscribers' => $mailingList->subscribers()
-        ->select(['id', 'email', 'first_name', 'last_name', 'status', 'created_at'])
-        ->latest()
-        ->paginate(10)
-    ]);
-  }
-
-  public function destroy(MailingList $mailingList)
-  {
-    $this->authorize('delete', $mailingList);
-
-    $mailingList->delete();
+    $this->mailingListService->delete($list);
 
     return back()->with('success', 'Mailing list deleted successfully.');
   }
 
-  public function getSubscribers(MailingList $mailingList)
+  public function synchronize(MailingList $list)
   {
-    $this->authorize('view', $mailingList);
+    $this->authorize('update', $list);
 
-    return $mailingList->subscribers()
-      ->select(['id', 'email', 'first_name', 'last_name'])
-      ->paginate();
+    $this->mailingListService->synchronize($list);
+
+    return back()->with('success', 'List synchronization started.');
+  }
+
+  public function duplicate(MailingList $list)
+  {
+    $this->authorize('create', MailingList::class);
+
+    $newList = $this->mailingListService->duplicate($list);
+
+    return redirect()->route('lists.show', $newList)
+      ->with('success', 'List duplicated successfully.');
+  }
+
+  public function export(MailingList $list)
+  {
+    $this->authorize('view', $list);
+
+    return $this->mailingListService->export($list);
+  }
+
+  public function addSubscribers(Request $request, MailingList $list)
+  {
+    $this->authorize('update', $list);
+
+    $validated = $request->validate([
+      'subscriber_ids' => ['required', 'array'],
+      'subscriber_ids.*' => ['exists:subscribers,id']
+    ]);
+
+    $this->mailingListService->addSubscribers($list, $validated['subscriber_ids']);
+
+    return back()->with('success', 'Subscribers added to list successfully.');
+  }
+
+  public function removeSubscribers(Request $request, MailingList $list)
+  {
+    $this->authorize('update', $list);
+
+    $validated = $request->validate([
+      'subscriber_ids' => ['required', 'array'],
+      'subscriber_ids.*' => ['exists:subscribers,id']
+    ]);
+
+    $this->mailingListService->removeSubscribers($list, $validated['subscriber_ids']);
+
+    return back()->with('success', 'Subscribers removed from list successfully.');
   }
 }

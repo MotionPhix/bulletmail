@@ -46,7 +46,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-// Include feature-specific routes
 require __DIR__ . '/organization/settings.php';
 require __DIR__ . '/team/settings.php';
 require __DIR__ . '/campaigns.php';
@@ -54,4 +53,6 @@ require __DIR__ . '/subscribers.php';
 require __DIR__ . '/automations.php';
 require __DIR__ . '/analytics.php';
 require __DIR__ . '/settings.php';
+require __DIR__ . '/lists.php';
+require __DIR__ . '/segments.php';
 require __DIR__ . '/auth.php';

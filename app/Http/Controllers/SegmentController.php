@@ -3,48 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\Segment;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Services\SegmentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class SegmentController extends Controller
 {
-  use AuthorizesRequests;
+  protected SegmentService $segmentService;
+
+  public function __construct(SegmentService $segmentService)
+  {
+    $this->segmentService = $segmentService;
+  }
 
   public function index(Request $request)
   {
-    $segments = Segment::query()
-      ->forTeam($request->user()->currentTeam)
-      ->when($request->search, function ($query, $search) {
-        $query->where('name', 'like', "%{$search}%");
-      })
+    $segments = $request->user()->currentTeam->segments()
+      ->withCount('subscribers')
       ->latest()
-      ->get()
-      ->map(fn ($segment) => [
-        'id' => $segment->id,
-        'name' => $segment->name,
-        'description' => $segment->description,
-        'conditions' => $segment->conditions,
-        'subscriber_count' => Cache::remember(
-          "segment_{$segment->id}_count",
-          now()->addHours(1),
-          fn () => $segment->getSubscribersQuery()->count()
-        ),
-        'created_at' => $segment->created_at,
-        'updated_at' => $segment->updated_at,
-      ]);
+      ->paginate();
 
-    return Inertia::render('Segments/Index', [
-      'segments' => $segments,
-      'filters' => $request->only(['search']),
-    ]);
-  }
-
-  public function create()
-  {
-    return Inertia::render('Segments/Create', [
-      'conditions' => $this->getAvailableConditions(),
+    return Inertia::render('segments/Index', [
+      'segments' => $segments
     ]);
   }
 
@@ -53,30 +33,41 @@ class SegmentController extends Controller
     $validated = $request->validate([
       'name' => ['required', 'string', 'max:255'],
       'description' => ['nullable', 'string'],
-      'conditions' => ['required', 'array', 'min:1'],
-      'conditions.*.field' => ['required', 'string'],
-      'conditions.*.operator' => ['required', 'string'],
-      'conditions.*.value' => ['required'],
+      'conditions' => ['required', 'array'],
+      'conditions.*.match' => ['required', 'in:any,all'],
+      'conditions.*.conditions' => ['required', 'array'],
+      'conditions.*.conditions.*.field' => ['required', 'string'],
+      'conditions.*.conditions.*.operator' => ['required', 'string'],
+      'conditions.*.conditions.*.value' => ['required'],
     ]);
 
-    $segment = $request->user()->currentTeam->segments()->create($validated);
+    $segment = $this->segmentService->create(
+      $request->user()->currentTeam,
+      $validated
+    );
 
-    return redirect()->route('segments.edit', $segment)
-      ->with('success', 'Segment created successfully.');
+    return back()->with('success', 'Segment created successfully.');
   }
 
-  public function edit(Segment $segment)
+  public function show(Segment $segment)
   {
-    $this->authorize('update', $segment);
+    $this->authorize('view', $segment);
 
-    return Inertia::render('Segments/Edit', [
+    return Inertia::render('segments/Show', [
       'segment' => [
         'id' => $segment->id,
+        'uuid' => $segment->uuid,
         'name' => $segment->name,
         'description' => $segment->description,
         'conditions' => $segment->conditions,
+        'created_at' => $segment->created_at->format('Y-m-d H:i:s')
       ],
-      'conditions' => $this->getAvailableConditions(),
+      'subscribers' => $this->segmentService->getSubscribers($segment, [
+        'sort' => request('sort', 'created_at'),
+        'direction' => request('direction', 'desc'),
+        'per_page' => request('per_page', 10)
+      ]),
+      'stats' => $this->segmentService->getStats($segment)
     ]);
   }
 
@@ -87,16 +78,15 @@ class SegmentController extends Controller
     $validated = $request->validate([
       'name' => ['required', 'string', 'max:255'],
       'description' => ['nullable', 'string'],
-      'conditions' => ['required', 'array', 'min:1'],
-      'conditions.*.field' => ['required', 'string'],
-      'conditions.*.operator' => ['required', 'string'],
-      'conditions.*.value' => ['required'],
+      'conditions' => ['required', 'array'],
+      'conditions.*.match' => ['required', 'in:any,all'],
+      'conditions.*.conditions' => ['required', 'array'],
+      'conditions.*.conditions.*.field' => ['required', 'string'],
+      'conditions.*.conditions.*.operator' => ['required', 'string'],
+      'conditions.*.conditions.*.value' => ['required'],
     ]);
 
-    $segment->update($validated);
-
-    // Clear the cached subscriber count
-    Cache::forget("segment_{$segment->id}_count");
+    $this->segmentService->update($segment, $validated);
 
     return back()->with('success', 'Segment updated successfully.');
   }
@@ -105,115 +95,39 @@ class SegmentController extends Controller
   {
     $this->authorize('delete', $segment);
 
-    $segment->delete();
+    $this->segmentService->delete($segment);
 
-    return redirect()->route('segments.index')
-      ->with('success', 'Segment deleted successfully.');
-  }
-
-  public function preview(Request $request, Segment $segment)
-  {
-    $this->authorize('view', $segment);
-
-    $subscribers = $segment->getSubscribersQuery()
-      ->select(['id', 'email', 'first_name', 'last_name', 'created_at'])
-      ->latest()
-      ->paginate($request->per_page ?? 10);
-
-    return back()->with('preview', [
-      'subscribers' => $subscribers,
-      'total' => $subscribers->total(),
-    ]);
+    return back()->with('success', 'Segment deleted successfully.');
   }
 
   public function duplicate(Segment $segment)
   {
     $this->authorize('create', Segment::class);
 
-    $newSegment = $segment->replicate();
-    $newSegment->name = "Copy of {$segment->name}";
-    $newSegment->save();
+    $newSegment = $this->segmentService->duplicate($segment);
 
-    return redirect()->route('segments.edit', $newSegment)
+    return redirect()->route('segments.show', $newSegment)
       ->with('success', 'Segment duplicated successfully.');
   }
 
-  public function calculateSize(Segment $segment)
+  public function preview(Request $request, Segment $segment)
   {
     $this->authorize('view', $segment);
 
-    $count = $segment->getSubscribersQuery()->count();
+    $matching = $segment->previewSubscribers(10);
+    $total = $segment->getMatchingSubscribersCount();
 
-    // Update the cache
-    Cache::put("segment_{$segment->id}_count", $count, now()->addHours(1));
-
-    return back()->with('segment_size', $count);
-  }
-
-  public function bulkDestroy(Request $request)
-  {
-    $validated = $request->validate([
-      'segments' => ['required', 'array'],
-      'segments.*' => ['required', 'exists:segments,id'],
+    return response()->json([
+      'subscribers' => $matching->map(fn($subscriber) => [
+        'id' => $subscriber->id,
+        'uuid' => $subscriber->uuid,
+        'email' => $subscriber->email,
+        'first_name' => $subscriber->first_name,
+        'last_name' => $subscriber->last_name,
+        'status' => $subscriber->status->value,
+        'created_at' => $subscriber->created_at->format('Y-m-d H:i:s')
+      ]),
+      'total' => $total
     ]);
-
-    $segments = Segment::whereIn('id', $validated['segments'])
-      ->forTeam($request->user()->currentTeam)
-      ->get();
-
-    foreach ($segments as $segment) {
-      $this->authorize('delete', $segment);
-      $segment->delete();
-    }
-
-    return back()->with('success', 'Selected segments deleted successfully.');
-  }
-
-  private function getAvailableConditions(): array
-  {
-    return [
-      'fields' => [
-        [
-          'value' => 'email',
-          'label' => 'Email Address',
-          'operators' => ['equals', 'contains', 'starts_with', 'ends_with'],
-        ],
-        [
-          'value' => 'first_name',
-          'label' => 'First Name',
-          'operators' => ['equals', 'contains', 'starts_with', 'ends_with'],
-        ],
-        [
-          'value' => 'last_name',
-          'label' => 'Last Name',
-          'operators' => ['equals', 'contains', 'starts_with', 'ends_with'],
-        ],
-        [
-          'value' => 'created_at',
-          'label' => 'Subscription Date',
-          'operators' => ['before', 'after', 'between'],
-        ],
-        [
-          'value' => 'status',
-          'label' => 'Status',
-          'operators' => ['equals'],
-          'values' => [
-            ['value' => 'subscribed', 'label' => 'Subscribed'],
-            ['value' => 'unsubscribed', 'label' => 'Unsubscribed'],
-            ['value' => 'bounced', 'label' => 'Bounced'],
-            ['value' => 'complained', 'label' => 'Complained'],
-          ],
-        ],
-      ],
-      'operators' => [
-        ['value' => 'equals', 'label' => 'Equals'],
-        ['value' => 'contains', 'label' => 'Contains'],
-        ['value' => 'starts_with', 'label' => 'Starts with'],
-        ['value' => 'ends_with', 'label' => 'Ends with'],
-        ['value' => 'before', 'label' => 'Before'],
-        ['value' => 'after', 'label' => 'After'],
-        ['value' => 'between', 'label' => 'Between'],
-      ],
-    ];
   }
 }

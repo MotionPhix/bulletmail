@@ -202,6 +202,11 @@ class Team extends Model
     return $this->belongsTo(Organization::class, 'organization_id');
   }
 
+  public function mailingLists(): HasMany
+  {
+      return $this->hasMany(MailingList::class);
+  }
+
   // Replace existing settings methods with organization methods
   public function getBrandingSettings(): array
   {

@@ -117,8 +117,9 @@ class DashboardController extends Controller
     return Inertia::render('organization/Dashboard', [
       ...$data,
       'canManageTeams' => true,
-      'availableTeams' => $data['organization']->teams->map(fn($team) => [
+      'teams' => $data['organization']->teams->map(fn($team) => [
         'id' => $team->id,
+        'uuid' => $team->uuid,
         'name' => $team->name,
         'owner' => $team->owner->name,
         'members_count' => $team->users()->count(),

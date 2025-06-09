@@ -158,11 +158,21 @@ class Organization extends Model implements HasMedia
 
   public function getCampaignStats(): array
   {
+    $teamIds = $this->teams()->pluck('id');
+
+    $stats = Campaign::whereIn('team_id', $teamIds)
+      ->join('campaign_stats', 'campaigns.id', '=', 'campaign_stats.campaign_id')
+      ->selectRaw('SUM(campaign_stats.delivered_count) as total_sent')
+      ->selectRaw('SUM(campaign_stats.opened_count) as total_opened')
+      ->selectRaw('SUM(campaign_stats.clicked_count) as total_clicked')
+      ->selectRaw('SUM(campaign_stats.bounced_count) as total_bounced')
+      ->first();
+
     return [
-      'total_sent' => $this->teams()->withSum('campaigns', 'emails_sent')->get()->sum('campaigns_sum_emails_sent'),
-      'total_opened' => $this->teams()->withSum('campaigns', 'emails_opened')->get()->sum('campaigns_sum_emails_opened'),
-      'total_clicked' => $this->teams()->withSum('campaigns', 'emails_clicked')->get()->sum('campaigns_sum_emails_clicked'),
-      'total_bounced' => $this->teams()->withSum('campaigns', 'emails_bounced')->get()->sum('campaigns_sum_emails_bounced'),
+      'total_sent' => $stats->total_sent ?? 0,
+      'total_opened' => $stats->total_opened ?? 0,
+      'total_clicked' => $stats->total_clicked ?? 0,
+      'total_bounced' => $stats->total_bounced ?? 0,
     ];
   }
 

@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
-class Analytics extends Controller
+class AnalyticsController extends Controller
 {
   public function __construct(
     private readonly AnalyticsService $analyticsService
