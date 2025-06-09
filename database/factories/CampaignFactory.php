@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Campaign;
 use App\Models\Team;
-use App\Models\User;
 use App\Models\EmailTemplate;
 use App\Enums\CampaignStatus;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -15,10 +14,12 @@ class CampaignFactory extends Factory
 
   public function definition(): array
   {
+    $team = Team::factory()->create();
+
     return [
-      'team_id' => Team::factory(),
-      'user_id' => User::factory(),
-      'template_id' => EmailTemplate::factory(),
+      'team_id' => $team->id,
+      'user_id' => $team->owner_id,
+      'template_id' => EmailTemplate::factory()->forTeam($team),
       'name' => $this->faker->words(3, true),
       'description' => $this->faker->sentence(),
       'subject' => $this->faker->sentence(),
@@ -55,5 +56,16 @@ class CampaignFactory extends Factory
     return $this->state(fn(array $attributes) => [
       'total_recipients' => $count
     ]);
+  }
+
+  public function forTeam(Team $team): self
+  {
+    return $this->state(function (array $attributes) use ($team) {
+      return [
+        'team_id' => $team->id,
+        'user_id' => $team->owner_id,
+        'template_id' => EmailTemplate::factory()->forTeam($team)
+      ];
+    });
   }
 }

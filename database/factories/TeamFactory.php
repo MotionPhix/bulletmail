@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\{Team, User};
+use App\Models\{Team, User, Organization};
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TeamFactory extends Factory
@@ -15,27 +15,18 @@ class TeamFactory extends Factory
       'uuid' => fake()->uuid(),
       'name' => $this->faker->company(),
       'owner_id' => User::factory(),
+      'organization_id' => Organization::factory(),
       'personal_team' => false
     ];
   }
 
-  public function configure(): self
+  public function withOrganization(Organization $organization): self
   {
-    return $this->afterCreating(function (Team $team) {
-      $team->settings()->create([
-        'email_settings' => [
-          'from_name' => $this->faker->name(),
-          'from_email' => $this->faker->safeEmail(),
-          'reply_to' => $this->faker->safeEmail()
-        ],
-        'branding' => [
-          'logo_url' => null,
-          'colors' => [
-            'primary' => '#4F46E5',
-            'secondary' => '#7C3AED'
-          ]
-        ]
-      ]);
+    return $this->state(function (array $attributes) use ($organization) {
+      return [
+        'organization_id' => $organization->id,
+        'name' => $organization->name,
+      ];
     });
   }
 

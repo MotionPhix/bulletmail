@@ -36,7 +36,6 @@ class Campaign extends Model
   ];
 
   protected $casts = [
-    'status' => CampaignStatus::class,
     'scheduled_at' => 'datetime',
     'started_at' => 'datetime',
     'completed_at' => 'datetime',

@@ -4,8 +4,6 @@ namespace App\Models;
 
 use App\Notifications\TeamInvitation;
 use App\Traits\HasSubscription;
-use App\Traits\HasEmailQuota;
-use App\Traits\HasBranding;
 use App\Traits\HasAnalytics;
 use App\Traits\HasTeams;
 use App\Traits\HasUuid;
@@ -26,8 +24,6 @@ class User extends Authenticatable implements MustVerifyEmail
     HasUuid,
     HasRoles,
     HasSubscription,
-    HasEmailQuota,
-    HasBranding,
     HasAnalytics,
     HasTeams,
     HasFactory,
@@ -43,10 +39,9 @@ class User extends Authenticatable implements MustVerifyEmail
     'email',
     'password',
     'account_status',
-    'organization_name',
-    'organization_size',
-    'industry',
-    'website',
+    'current_team_id',
+    'preferences',
+    'notification_settings'
   ];
 
   /**
@@ -64,7 +59,8 @@ class User extends Authenticatable implements MustVerifyEmail
   {
     return [
       'email_verified_at' => 'datetime',
-      'onboarding_completed_at' => 'datetime',
+      'preferences' => 'array',
+      'notification_settings' => 'array',
       'password' => 'hashed',
     ];
   }
@@ -106,34 +102,15 @@ class User extends Authenticatable implements MustVerifyEmail
     return $this->belongsTo(Team::class, 'current_team_id');
   }
 
+  public function isOrganizationOwner(Organization $organization): bool
+  {
+    return $this->id === $organization->owner_id;
+  }
+
   // Subscriber relationship
   public function subscribers()
   {
     return $this->hasMany(Subscriber::class)->latest();
-  }
-
-  // Settings relationship
-  public function settings()
-  {
-    return $this->hasOne(Setting::class)->withDefault([
-      'preferences' => [
-        'language' => 'en',
-        'timezone' => 'UTC',
-      ],
-      'notification_settings' => [
-        'email_notifications' => true,
-        'in_app_notifications' => true,
-      ],
-      'email_settings' => [
-        'from_name' => null,
-        'reply_to' => null,
-      ],
-      'branding_settings' => [
-        'logo_url' => null,
-        'primary_color' => '#4F46E5',
-        'accent_color' => '#818CF8',
-      ],
-    ]);
   }
 
   // Index relationships
@@ -155,11 +132,6 @@ class User extends Authenticatable implements MustVerifyEmail
   public function invitedTeamMembers()
   {
     return $this->hasMany(InvitedTeamMember::class);
-  }
-
-  public function onboardingProgress()
-  {
-    return $this->hasOne(OnboardingProgress::class);
   }
 
   public function teamInvitations()
@@ -288,5 +260,71 @@ class User extends Authenticatable implements MustVerifyEmail
       // Queue the invitation email
       $invitation->notify(new TeamInvitation($this->user, $team));
     }
+  }
+
+  public function ownedOrganizations()
+  {
+    return $this->hasMany(Organization::class, 'owner_id');
+  }
+
+  public function organizations()
+  {
+    return $this->belongsToMany(Organization::class, 'team_user', 'user_id', 'organization_id');
+  }
+
+  public function belongsToTeam($team): bool
+  {
+    return $this->teams()
+      ->where('team_id', $team->id)
+      ->exists();
+  }
+
+  public function switchTeam($team): bool
+  {
+    if (!$this->belongsToTeam($team)) {
+      return false;
+    }
+
+    $this->forceFill([
+      'current_team_id' => $team->id,
+    ])->save();
+
+    return true;
+  }
+
+  // Add these methods to your existing User model
+
+  public function subscription()
+  {
+    return $this->hasOne(Subscription::class)->latest();
+  }
+
+  public function subscriptions()
+  {
+    return $this->hasMany(Subscription::class);
+  }
+
+  public function onPaidPlan(): bool
+  {
+    return $this->subscription &&
+      $this->subscription->isActive() &&
+      !$this->subscription->plan->isFreePlan();
+  }
+
+  public function onTrial(): bool
+  {
+    return $this->subscription && $this->subscription->isOnTrial();
+  }
+
+  public function hasFeature(string $feature): bool
+  {
+    return $this->subscription && $this->subscription->hasFeature($feature);
+  }
+
+  public function getFeatureValue(string $feature, $default = null)
+  {
+    return $this->subscription
+      ? $this->subscription->getFeatureValue($feature, $default)
+      : $default;
   }
 }

@@ -12,36 +12,29 @@ class PlanFactory extends Factory
 
   public function definition(): array
   {
-    $name = $this->faker->unique()->randomElement([
-      'Free Plan',
-      'Starter Plan',
-      'Pro Plan',
-      'Business Plan',
-      'Enterprise Plan'
-    ]);
+    $name = $this->faker->unique()->randomElement(['Starter', 'Pro', 'Business']);
 
     return [
       'uuid' => Str::uuid(),
       'name' => $name,
       'slug' => Str::slug($name),
-      'description' => $this->faker->paragraph(),
-      'price' => $this->faker->randomElement([0, 999, 2999, 4999, 9999]),
-      'currency' => 'MWK',
+      'description' => $this->faker->sentence(),
+      'price' => $this->faker->randomElement([0, 2999, 4999]),
+      'currency' => 'USD',
       'trial_days' => 14,
       'is_active' => true,
-      'is_featured' => $this->faker->boolean(20), // 20% chance of being featured
-      'sort_order' => $this->faker->numberBetween(0, 10),
+      'is_featured' => false,
+      'sort_order' => 0,
       'features' => [
-        'campaign_limit' => $this->faker->randomElement([2, 5, 10, 20, 'unlimited']),
-        'email_limit' => $this->faker->randomElement(['1,000', '5,000', '10,000', '50,000', 'unlimited']),
-        'recipient_limit' => $this->faker->randomElement(['500', '1,000', '5,000', '10,000', 'unlimited']),
-        'segment_limit' => $this->faker->randomElement([2, 5, 10, 20, 'unlimited']),
-        'can_schedule_campaigns' => $this->faker->boolean(80), // 80% chance of true
-        'personalisation' => $this->faker->boolean(70), // 70% chance of true
-        'analytics' => $this->faker->randomElement(['Basic analytics', 'Advanced analytics', 'Premium analytics']),
-        'support_type' => $this->faker->randomElement(['Email support', '24/7 Email support', 'Priority support', 'Dedicated support'])
-      ],
-      'metadata' => null
+        'campaign_limit' => 10,
+        'subscriber_limit' => 1000,
+        'monthly_email_limit' => 10000,
+        'daily_email_limit' => 1000,
+        'can_schedule_campaigns' => true,
+        'can_use_templates' => true,
+        'can_import_subscribers' => true,
+        'support_type' => 'email'
+      ]
     ];
   }
 
@@ -62,47 +55,46 @@ class PlanFactory extends Factory
   /**
    * Indicate that the plan is a free plan.
    */
-  public function free(): Factory
+  public function free(): self
   {
-    return $this->state(function (array $attributes) {
-      return [
-        'name' => 'Free Plan',
-        'price' => 0,
-        'features' => [
-          'campaign_limit' => 2,
-          'email_limit' => '1,000',
-          'recipient_limit' => '500',
-          'segment_limit' => 2,
-          'can_schedule_campaigns' => false,
-          'personalisation' => false,
-          'analytics' => 'Basic analytics',
-          'support_type' => 'Email support'
-        ]
-      ];
-    });
+    return $this->state([
+      'name' => 'Free',
+      'slug' => 'free',
+      'price' => 0,
+      'features' => [
+        'campaign_limit' => 2,
+        'subscriber_limit' => 500,
+        'monthly_email_limit' => 2000,
+        'daily_email_limit' => 200,
+        'can_schedule_campaigns' => false,
+        'can_use_templates' => true,
+        'can_import_subscribers' => true,
+        'support_type' => 'community'
+      ]
+    ]);
   }
 
   /**
    * Indicate that the plan is a pro plan.
    */
-  public function pro(): Factory
+  public function pro(): self
   {
-    return $this->state(function (array $attributes) {
-      return [
-        'name' => 'Pro Plan',
-        'price' => 4999,
-        'is_featured' => true,
-        'features' => [
-          'campaign_limit' => 20,
-          'email_limit' => '50,000',
-          'recipient_limit' => '10,000',
-          'segment_limit' => 10,
-          'can_schedule_campaigns' => true,
-          'personalisation' => true,
-          'analytics' => 'Advanced analytics',
-          'support_type' => 'Priority support'
-        ]
-      ];
-    });
+    return $this->state([
+      'name' => 'Pro',
+      'slug' => 'pro',
+      'price' => 2999,
+      'is_featured' => true,
+      'features' => [
+        'campaign_limit' => 50,
+        'subscriber_limit' => 10000,
+        'monthly_email_limit' => 50000,
+        'daily_email_limit' => 5000,
+        'can_schedule_campaigns' => true,
+        'can_use_templates' => true,
+        'can_import_subscribers' => true,
+        'can_export_data' => true,
+        'support_type' => 'priority'
+      ]
+    ]);
   }
 }

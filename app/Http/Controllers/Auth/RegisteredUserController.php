@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
-use App\Models\Setting;
+use App\Models\Plan;
+use App\Models\Subscription;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -40,19 +42,19 @@ class RegisteredUserController extends Controller
 
     try {
       $user = $this->createUser($request->all());
-      [$organization, $team] = $this->createOrganizationAndTeam($user, $request->all());
+      $organization = $this->createOrganization($user, $request->all());
+      $this->createTeam($user, $organization, $request->all());
 
-      $user->update(['current_team_id' => $team->id]);
-
-      // Create user-specific settings only
-      $this->createUserSettings($user, $request->all());
+      // Create free subscription
+      $this->createFreeSubscription($user, $organization);
 
       event(new Registered($user));
 
       DB::commit();
+
       Auth::login($user);
 
-      return to_route('dashboard');
+      return redirect()->route('organizations.show', $organization);
     } catch (\Exception $e) {
       DB::rollBack();
       throw $e;
@@ -149,10 +151,14 @@ class RegisteredUserController extends Controller
       'last_name' => $input['last_name'],
       'email' => $input['email'],
       'password' => Hash::make($input['password']),
-      'organization_name' => $input['organization_name'],
-      'organization_size' => $input['organization_size'],
-      'industry' => $input['industry'],
-      'website' => $input['website'] ?? null,
+      'preferences' => [
+        'language' => 'en',
+        'timezone' => 'UTC'
+      ],
+      'notification_settings' => [
+        'email_notifications' => true,
+        'browser_notifications' => true
+      ]
     ]);
 
     // Assign the team-owner role to the user
@@ -161,7 +167,7 @@ class RegisteredUserController extends Controller
     return $user;
   }
 
-  protected function createOrganizationAndTeam(User $user, array $input): array
+  protected function createOrganization(User $user, array $input): Organization
   {
     $organization = Organization::create([
       'name' => $input['organization_name'],
@@ -169,7 +175,21 @@ class RegisteredUserController extends Controller
       'industry' => $input['industry'],
       'website' => $input['website'] ?? null,
       'default_from_name' => $user->name,
-      'default_from_email' => $user->email
+      'default_from_email' => $user->email,
+      'default_reply_to' => $user->email,
+      'owner_id' => $user->id,
+      'settings' => [
+        'billing_email' => $user->email,
+        'timezone' => 'UTC',
+        'date_format' => 'Y-m-d'
+      ],
+      'preferences' => [
+        'language' => 'en',
+        'notifications' => [
+          'new_subscriber' => true,
+          'campaign_sent' => true
+        ]
+      ]
     ]);
 
     if (isset($input['logo'])) {
@@ -177,39 +197,35 @@ class RegisteredUserController extends Controller
         ->toMediaCollection('logo');
     }
 
-    $team = $organization->teams()->create([
+    return $organization;
+  }
+
+  protected function createTeam(User $user, Organization $organization, array $input): Team
+  {
+    $team = Team::create([
       'name' => $input['organization_name'] . ' Team',
       'owner_id' => $user->id,
+      'organization_id' => $organization->id,
       'personal_team' => true
     ]);
 
-    return [$organization, $team];
+    $user->forceFill(['current_team_id' => $team->id])->save();
+
+    return $team;
   }
 
-  protected function createUserSettings(User $user, array $input): void
-  {
-    Setting::updateUserSettings($user, 'preferences', [
-      'language' => 'en',
-      'timezone' => 'UTC',
-    ]);
+  protected function createFreeSubscription(
+    User $user,
+    Organization $organization
+  ): void {
+    $freePlan = Plan::where('slug', 'free')->firstOrFail();
 
-    Setting::updateUserSettings($user, 'notifications', [
-      'email_notifications' => true,
-      'in_app_notifications' => true,
-    ]);
-
-    Setting::updateUserSettings($user, 'company', [
-      'company_name' => $input['organization_name'],
-      'industry' => $input['industry'],
-      'company_size' => $input['organization_size'],
-      'website' => $input['website'] ?? null,
-      'phone' => $input['phone'] ?? null,
-      'title' => $input['title'] ?? null,
-    ]);
-
-    Setting::updateUserSettings($user, 'email_settings', [
-      'from_name' => $input['title'] ?? null,
-      'reply_to' => $input['title'] ?? null,
+    $organization->subscriptions()->create([
+      'user_id' => $user->id,
+      'plan_id' => $freePlan->id,
+      'status' => Subscription::STATUS_ACTIVE,
+      'starts_at' => now(),
+      'trial_ends_at' => now()->addDays($freePlan->trial_days)
     ]);
   }
 }

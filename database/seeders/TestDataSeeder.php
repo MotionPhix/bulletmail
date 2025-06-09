@@ -2,96 +2,117 @@
 
 namespace Database\Seeders;
 
-use App\Models\Team;
-use App\Models\User;
-use App\Models\EmailTemplate;
-use App\Models\Campaign;
-use App\Models\Subscriber;
+use App\Models\{Organization, Team, User, EmailTemplate, Campaign, Subscriber, Plan, Subscription};
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class TestDataSeeder extends Seeder
 {
   public function run(): void
   {
-    // Create owner user first
+    // Get plans
+    $freePlan = Plan::where('slug', 'free')->first();
+    $proPlan = Plan::where('slug', 'pro')->first();
+
+    // Create owner user
     $owner = User::factory()->create([
       'email' => 'test@example.com',
       'first_name' => 'Test',
       'last_name' => 'User',
-      'organization_name' => 'Acme Corp',
-      'organization_size' => '11-50',
-      'industry' => 'technology',
-      'website' => 'https://www.acmecorp.com',
-      'onboarding_completed_at' => now(),
     ]);
 
-    // Create team with owner
-    $team = Team::factory()
+    // Create organization
+    $organization = Organization::factory()
       ->withOwner($owner)
       ->create([
-        'name' => $owner->organization_name,
-        'personal_team' => true,
+        'name' => 'Acme Corp',
+        'size' => '11-50',
+        'industry' => 'technology',
+        'website' => 'https://www.acmecorp.com',
+        'default_from_name' => 'Acme Corp',
+        'default_from_email' => 'no-reply@acmecorp.com',
+        'default_reply_to' => 'support@acmecorp.com',
       ]);
 
-    // Set current team
-    $owner->update(['current_team_id' => $team->id]);
+    // Create pro subscription
+    Subscription::create([
+      'organization_id' => $organization->id,
+      'user_id' => $owner->id,
+      'plan_id' => $proPlan->id,
+      'status' => 'active',
+      'starts_at' => now(),
+      'trial_ends_at' => now()->addDays(14)
+    ]);
 
-    // Create additional team members
-    User::factory()
-      ->count(2)
-      ->sequence(
-        [
-          'organization_name' => 'Marketing Team',
-          'organization_size' => '1-10',
-          'industry' => 'marketing',
-        ],
-        [
-          'organization_name' => 'Sales Team',
-          'organization_size' => '11-50',
-          'industry' => 'sales',
-        ]
-      )
-      ->create()
-      ->each(function ($user) use ($team) {
-        $team->users()->attach($user, ['role' => 'member']);
-      });
+    $team = $organization->teams()->first();
+    $owner->forceFill(['current_team_id' => $team->id])->save();
+    $owner->assignRole('team-owner');
 
-    // Create templates
-    EmailTemplate::factory()
-      ->count(5)
-      ->sequence(
-        ['category' => 'newsletter'],
-        ['category' => 'marketing'],
-        ['category' => 'transactional']
-      )
-      ->create([
-        'team_id' => $team->id,
-        'user_id' => $owner->id
+    // Create team members
+    collect(range(1, 2))->each(function () use ($team, $freePlan) {
+      $member = User::factory()->create();
+      $team->users()->attach($member, ['role' => 'member']);
+      $member->assignRole('team-member');
+
+      Subscription::create([
+        'organization_id' => $team->organization_id,
+        'user_id' => $member->id,
+        'plan_id' => $freePlan->id,
+        'status' => 'active',
+        'starts_at' => now()
       ]);
+    });
 
-    // Create campaigns
-    Campaign::factory()
-      ->count(3)
-      ->sequence(
-        ['status' => 'draft'],
-        ['status' => 'scheduled'],
-        ['status' => 'sent']
-      )
-      ->create([
-        'team_id' => $team->id,
-        'user_id' => $owner->id
-      ]);
+    // Create resources in chunks
+    $this->createTemplates($team, $owner);
+    $this->createCampaigns($team, $owner);
+    $this->createSubscribers($team);
+  }
 
-    // Create subscribers
-    Subscriber::factory()
-      ->count(100)
-      ->sequence(
-        ['status' => 'subscribed'],
-        ['status' => 'unsubscribed']
-      )
-      ->create([
-        'team_id' => $team->id,
-        'user_id' => $owner->id
-      ]);
+  private function createTemplates($team, $owner)
+  {
+    collect(range(1, 5))->each(
+      fn($i) =>
+      EmailTemplate::factory()
+        ->forTeam($team)
+        ->create([
+          'category' => match ($i % 3) {
+            0 => 'newsletter',
+            1 => 'marketing',
+            2 => 'transactional',
+          }
+        ])
+    );
+  }
+
+  private function createCampaigns($team, $owner)
+  {
+    collect(range(1, 3))->each(
+      fn($i) =>
+      Campaign::factory()
+        ->forTeam($team)
+        ->create([
+          'status' => match ($i) {
+            1 => 'draft',
+            2 => 'scheduled',
+            3 => 'sent',
+          }
+        ])
+    );
+  }
+
+  private function createSubscribers($team)
+  {
+    collect(range(1, 100))
+      ->chunk(20)
+      ->each(
+        fn($chunk) =>
+        Subscriber::factory()
+          ->count($chunk->count())
+          ->forTeam($team)
+          ->create([
+            'status' => $chunk->first() % 2 === 0 ? 'subscribed' : 'unsubscribed'
+          ])
+      );
   }
 }

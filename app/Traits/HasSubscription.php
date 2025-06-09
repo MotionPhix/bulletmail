@@ -2,14 +2,32 @@
 
 namespace App\Traits;
 
-use App\Models\Subscription;
+use App\Models\{Plan, Subscription};
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Carbon\Carbon;
 
 trait HasSubscription
 {
+  public function subscription(): HasOne
+  {
+    return $this->hasOne(Subscription::class)->latest();
+  }
+
+  public function subscriptions()
+  {
+    return $this->hasMany(Subscription::class);
+  }
+
+  public function activeSubscription()
+  {
+    return $this->subscription()->where('status', 'active')->first();
+  }
+
   public function onTrial(): bool
   {
-    return $this->trial_ends_at && Carbon::now()->lt($this->trial_ends_at);
+    return $this->subscription &&
+      $this->subscription->trial_ends_at &&
+      Carbon::now()->lt($this->subscription->trial_ends_at);
   }
 
   public function subscribed(): bool
@@ -17,44 +35,23 @@ trait HasSubscription
     return $this->activeSubscription() !== null;
   }
 
-  public function canCreateCampaign(): bool
+  public function hasFeature(string $feature): bool
   {
     $subscription = $this->activeSubscription();
     if (!$subscription && !$this->onTrial()) {
       return false;
     }
 
-    // Check campaign limit
-    $campaignLimit = $subscription->plan->features['campaign_limit'] ?? 0;
-    $currentCampaigns = $this->campaigns()->count();
-
-    return $currentCampaigns < $campaignLimit;
+    return $subscription->plan->hasFeature($feature);
   }
 
-  public function canSendEmails(): bool
+  public function getFeatureValue(string $feature, $default = null)
   {
     $subscription = $this->activeSubscription();
     if (!$subscription && !$this->onTrial()) {
-      return false;
+      return $default;
     }
 
-    // Check monthly email limit
-    $emailLimit = $subscription->plan->features['email_limit'] ?? 0;
-    $currentMonth = Carbon::now()->startOfMonth();
-    $emailsSent = $this->campaigns()
-      ->where('sent_at', '>=', $currentMonth)
-      ->sum('emails_sent');
-
-    return $emailsSent < $emailLimit;
-  }
-
-  public function canScheduleCampaigns(): bool
-  {
-    $subscription = $this->activeSubscription();
-    if (!$subscription && !$this->onTrial()) {
-      return false;
-    }
-
-    return $subscription->plan->features['can_schedule_campaigns'] ?? false;
+    return $subscription->plan->getFeature($feature, $default);
   }
 }

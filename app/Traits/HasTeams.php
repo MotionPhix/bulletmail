@@ -2,11 +2,9 @@
 
 namespace App\Traits;
 
-use App\Models\Team;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\{Team, Organization};
+use Illuminate\Database\Eloquent\Relations\{BelongsToMany, HasMany, BelongsTo};
 use Illuminate\Support\Collection;
-use Spatie\Permission\Models\Role;
 
 trait HasTeams
 {
@@ -22,9 +20,14 @@ trait HasTeams
     return $this->hasMany(Team::class, 'owner_id');
   }
 
-  public function currentTeam()
+  public function currentTeam(): BelongsTo
   {
     return $this->belongsTo(Team::class, 'current_team_id');
+  }
+
+  public function organizations(): HasMany
+  {
+    return $this->hasMany(Organization::class, 'owner_id');
   }
 
   public function allTeams(): Collection
@@ -38,10 +41,7 @@ trait HasTeams
       return false;
     }
 
-    $this->forceFill([
-      'current_team_id' => $team->id,
-    ])->save();
-
+    $this->forceFill(['current_team_id' => $team->id])->save();
     $this->setRelation('currentTeam', $team);
 
     return true;
@@ -49,44 +49,22 @@ trait HasTeams
 
   public function belongsToTeam($team): bool
   {
-    if (is_null($team)) {
-      return false;
-    }
-
     return $this->teams->contains($team) || $this->ownsTeam($team);
   }
 
   public function ownsTeam($team): bool
   {
-    if (is_null($team)) {
-      return false;
-    }
-
     return $this->id === $team->owner_id;
   }
 
-  public function hasTeamPermission($team, $permission): bool
+  public function hasTeamRole($team, $role): bool
   {
     if ($this->ownsTeam($team)) {
       return true;
     }
 
-    $teamMembership = $this->teams()->where('team_id', $team->id)->first();
-    if (!$teamMembership) {
-      return false;
-    }
-
-    $role = Role::findByName('team-' . $teamMembership->pivot->role);
-    return $role->hasPermissionTo($permission);
-  }
-
-  public function getTeamRole($team): ?string
-  {
-    if ($this->ownsTeam($team)) {
-      return 'owner';
-    }
-
-    $teamMembership = $this->teams()->where('team_id', $team->id)->first();
-    return $teamMembership ? $teamMembership->pivot->role : null;
+    return $this->teams->contains(function ($t) use ($team, $role) {
+      return $t->id === $team->id && $t->pivot->role === $role;
+    });
   }
 }

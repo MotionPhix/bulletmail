@@ -17,15 +17,37 @@ class Team extends Model
    */
   public static $defaultRoles = [
     'owner' => [
-      'team:manage',
+      'team:create',
+      'team:edit',
+      'team:view',
+      'team:leave',
+      'team:switch',
+      'team:settings:view',
       'team:settings:edit',
       'team:delete',
       'member:view',
       'member:invite',
       'member:remove',
       'member:role:assign',
+      'member:role:edit',
+      'member:role:view',
+      'member:role:delete',
+      'member:role:create',
+      'member:role:revoke',
       'billing:view',
-      'billing:manage',
+      'billing:update',
+      'billing:subscribe',
+      'billing:upgrade',
+      'billing:downgrade',
+      'billing:cancel',
+      'billing:history',
+      'billing:invoice:view',
+      'billing:invoice:download',
+      'billing:invoice:send',
+      'billing:payment:method:add',
+      'billing:payment:method:remove',
+      'billing:payment:method:update',
+      'billing:payment:method:view',
       'campaign:view',
       'campaign:create',
       'campaign:edit',
@@ -47,7 +69,12 @@ class Team extends Model
       'automation:view',
       'automation:create',
       'automation:edit',
-      'automation:delete'
+      'automation:delete',
+      'organization:view',
+      'organization:edit',
+      'organization:delete',
+      'organization:settings:view',
+      'organization:settings:edit'
     ],
     'admin' => [
       'team:settings:edit',
@@ -88,12 +115,15 @@ class Team extends Model
     'uuid',
     'name',
     'owner_id',
+    'organization_id',
     'personal_team'
   ];
 
   protected $casts = [
     'personal_team' => 'boolean'
   ];
+
+  protected $appends = ['stats', 'recent_activities'];
 
   // Relationships
   public function owner(): BelongsTo
@@ -169,7 +199,7 @@ class Team extends Model
 
   public function organization(): BelongsTo
   {
-    return $this->belongsTo(Organization::class);
+    return $this->belongsTo(Organization::class, 'organization_id');
   }
 
   // Replace existing settings methods with organization methods
@@ -186,5 +216,37 @@ class Team extends Model
   public function getQuotaSettings(): array
   {
     return $this->organization->getQuotaLimits();
+  }
+
+  public function getStatsAttribute(): array
+  {
+    return [
+      'campaigns_count' => $this->campaigns()->count(),
+      'subscribers_count' => $this->subscribers()->count(),
+      'templates_count' => $this->templates()->count(),
+      'members_count' => $this->users()->count(),
+    ];
+  }
+
+  public function getRecentActivitiesAttribute(): array
+  {
+    return TrackingEvent::where('metadata->team_id', $this->id)
+      ->with('trackable')
+      ->latest()
+      ->take(10)
+      ->get()
+      ->map(function ($event) {
+        return [
+          'id' => $event->uuid,
+          'type' => $event->event_type,
+          'description' => $event->description,
+          'created_at' => $event->created_at,
+          'user' => [
+            'name' => $event->metadata['user_name'] ?? 'System',
+            'avatar' => $event->metadata['user_avatar'] ?? null
+          ]
+        ];
+      })
+      ->toArray();
   }
 }

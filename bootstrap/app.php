@@ -32,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ]);
 
     $middleware->alias([
+      'organization.access' => \App\Http\Middleware\CheckOrganizationAccess::class,
+      'team.access' => \App\Http\Middleware\CheckTeamAccess::class,
       'team.permission' => \App\Http\Middleware\CheckTeamPermission::class,
     ]);
 

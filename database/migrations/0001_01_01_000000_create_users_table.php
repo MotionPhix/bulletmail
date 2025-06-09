@@ -17,12 +17,16 @@ return new class extends Migration
       $table->string('first_name');
       $table->string('last_name');
       $table->string('email')->unique();
-      $table->string('account_status')->default('active');
-      $table->foreignId('current_team_id')->nullable();
-      $table->timestamp('email_verified_at')->nullable();
-      $table->timestamp('onboarding_completed_at')->nullable();
       $table->string('password');
       $table->rememberToken();
+      $table->foreignId('current_team_id')->nullable();
+      $table->string('account_status')->default('active');
+
+      // User preferences and settings
+      $table->json('preferences')->nullable();
+      $table->json('notification_settings')->nullable();
+      $table->timestamp('email_verified_at')->nullable();
+
       $table->timestamps();
       $table->softDeletes();
     });

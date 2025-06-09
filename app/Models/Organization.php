@@ -3,16 +3,18 @@
 namespace App\Models;
 
 use App\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Organization extends Model implements HasMedia
 {
-  use HasUuid, SoftDeletes, InteractsWithMedia;
+  use HasUuid, HasFactory, SoftDeletes, InteractsWithMedia;
 
   protected $fillable = [
     'name',
@@ -20,6 +22,7 @@ class Organization extends Model implements HasMedia
     'industry',
     'website',
     'phone',
+    'owner_id',
     'primary_color',
     'secondary_color',
     'email_header',
@@ -27,17 +30,17 @@ class Organization extends Model implements HasMedia
     'default_from_name',
     'default_from_email',
     'default_reply_to',
-    'subscriber_limit',
-    'campaign_limit',
-    'monthly_email_limit',
-    'daily_email_limit'
+    'settings',
+    'preferences',
+    'integrations',
+    'metadata'
   ];
 
   protected $casts = [
-    'subscriber_limit' => 'integer',
-    'campaign_limit' => 'integer',
-    'monthly_email_limit' => 'integer',
-    'daily_email_limit' => 'integer'
+    'settings' => 'array',
+    'preferences' => 'array',
+    'integrations' => 'array',
+    'metadata' => 'array'
   ];
 
   public function teams(): HasMany
@@ -69,7 +72,18 @@ class Organization extends Model implements HasMedia
         'secondary' => $this->secondary_color
       ],
       'email_header' => $this->email_header,
-      'email_footer' => $this->email_footer
+      'email_footer' => $this->email_footer,
+      // Add logo configuration
+      'maxLogoSize' => 2 * 1024 * 1024, // 2MB in bytes
+      'allowedTypes' => ['image/jpeg', 'image/png', 'image/svg+xml'],
+      'minDimensions' => [
+        'width' => 100,
+        'height' => 100
+      ],
+      'maxDimensions' => [
+        'width' => 1000,
+        'height' => 1000
+      ]
     ];
   }
 
@@ -90,5 +104,76 @@ class Organization extends Model implements HasMedia
       'monthly_email_limit' => $this->monthly_email_limit,
       'daily_email_limit' => $this->daily_email_limit
     ];
+  }
+
+  // Add owner relationship
+  public function owner()
+  {
+    return $this->belongsTo(User::class, 'owner_id');
+  }
+
+  // Add method to check if user is owner
+  public function isOwnedBy(User $user): bool
+  {
+    return $this->owner_id === $user->id;
+  }
+
+  public function subscription(): HasOne
+  {
+    return $this->hasOne(Subscription::class)->latest();
+  }
+
+  public function subscriptions(): HasMany
+  {
+    return $this->hasMany(Subscription::class);
+  }
+
+  public function currentPlan(): ?Plan
+  {
+    return $this->subscription?->plan;
+  }
+
+  public function isOnPaidPlan(): bool
+  {
+    return $this->subscription?->isActive() && !$this->subscription?->plan?->isFreePlan();
+  }
+
+  public function getStats(): array
+  {
+    return [
+      'teams_count' => $this->teams()->count(),
+      'members_count' => $this->teams()->withCount('users')->get()->sum('users_count'),
+      'subscribers_count' => $this->teams()->withCount('subscribers')->get()->sum('subscribers_count'),
+      'campaigns_count' => $this->teams()->withCount('campaigns')->get()->sum('campaigns_count'),
+      'sent_campaigns_count' => $this->teams()
+        ->withCount(['campaigns' => fn($q) => $q->where('status', 'sent')])
+        ->get()
+        ->sum('campaigns_count'),
+      /*'active_automations_count' => $this->teams()
+        ->withCount(['automations' => fn($q) => $q->where('status', 'active')])
+        ->get()
+        ->sum('automations_count'),*/
+    ];
+  }
+
+  public function getCampaignStats(): array
+  {
+    return [
+      'total_sent' => $this->teams()->withSum('campaigns', 'emails_sent')->get()->sum('campaigns_sum_emails_sent'),
+      'total_opened' => $this->teams()->withSum('campaigns', 'emails_opened')->get()->sum('campaigns_sum_emails_opened'),
+      'total_clicked' => $this->teams()->withSum('campaigns', 'emails_clicked')->get()->sum('campaigns_sum_emails_clicked'),
+      'total_bounced' => $this->teams()->withSum('campaigns', 'emails_bounced')->get()->sum('campaigns_sum_emails_bounced'),
+    ];
+  }
+
+  public function getSubscriberGrowth(): array
+  {
+    return $this->teams()
+      ->with(['subscribers' => fn($q) => $q->select('created_at', 'team_id')])
+      ->get()
+      ->flatMap->subscribers
+      ->groupBy(fn($sub) => $sub->created_at->format('Y-m'))
+      ->map(fn($subs) => $subs->count())
+      ->toArray();
   }
 }

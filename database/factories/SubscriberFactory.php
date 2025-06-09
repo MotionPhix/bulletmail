@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Subscriber;
 use App\Models\Team;
-use App\Models\User;
 use App\Enums\SubscriberStatus;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -14,9 +13,11 @@ class SubscriberFactory extends Factory
 
   public function definition(): array
   {
+    $team = Team::factory()->create();
+
     return [
-      'team_id' => Team::factory(),
-      'user_id' => User::factory(),
+      'team_id' => $team->id,
+      'user_id' => $team->owner_id,
       'email' => $this->faker->unique()->safeEmail(),
       'first_name' => $this->faker->firstName(),
       'last_name' => $this->faker->lastName(),
@@ -62,5 +63,15 @@ class SubscriberFactory extends Factory
       'last_opened_at' => now()->subDays(rand(1, 7)),
       'last_clicked_at' => now()->subDays(rand(1, 7))
     ]);
+  }
+
+  public function forTeam(Team $team): self
+  {
+    return $this->state(function (array $attributes) use ($team) {
+      return [
+        'team_id' => $team->id,
+        'user_id' => $team->owner_id
+      ];
+    });
   }
 }

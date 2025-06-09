@@ -65,7 +65,7 @@ const submit = () => {
           <div class="grid gap-y-1.5">
             <Label>First name</Label>
 
-            <Input v-model="form.first_name" required />
+            <Input name="first_name" v-model="form.first_name" required />
 
             <InputError :message="form.errors.first_name" />
           </div>
@@ -73,7 +73,7 @@ const submit = () => {
           <div class="grid gap-y-1.5">
             <Label>Last name</Label>
 
-            <Input v-model="form.last_name" required />
+            <Input name="last_name" v-model="form.last_name" required />
 
             <InputError :message="form.errors.last_name" />
           </div>
@@ -83,7 +83,17 @@ const submit = () => {
         <div class="grid gap-y-1.5">
           <Label>Organization name</Label>
 
-          <Input v-model="form.organization_name" required />
+          <Input
+            v-model="form.organization_name"
+            required name="company_name"
+            placeholder="Enter your company name"
+          />
+
+          <p
+            v-if="!form.errors.organization_name"
+            class="text-sm text-muted-foreground">
+            You will be the owner of this organization
+          </p>
 
           <InputError :message="form.errors.organization_name" />
         </div>

@@ -10,6 +10,9 @@ return new class extends Migration {
     Schema::create('organizations', function (Blueprint $table) {
       $table->id();
       $table->uuid('uuid')->unique();
+      $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
+
+      // Basic Info
       $table->string('name');
       $table->string('size');
       $table->string('industry');
@@ -27,14 +30,19 @@ return new class extends Migration {
       $table->string('default_from_email')->nullable();
       $table->string('default_reply_to')->nullable();
 
-      // Quotas
-      $table->integer('subscriber_limit')->default(1000);
-      $table->integer('campaign_limit')->default(100);
-      $table->integer('monthly_email_limit')->default(10000);
-      $table->integer('daily_email_limit')->default(1000);
+      // Organization Settings
+      $table->json('settings')->nullable();
+      $table->json('preferences')->nullable();
+      $table->json('integrations')->nullable();
+      $table->json('metadata')->nullable();
 
       $table->timestamps();
       $table->softDeletes();
     });
+  }
+
+  public function down(): void
+  {
+    Schema::dropIfExists('organizations');
   }
 };
