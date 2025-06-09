@@ -278,11 +278,13 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[50px] flex items-center">
-                  <Checkbox
-                    :checked="isAllSelected"
-                    @update:checked="toggleSelectAll"
-                  />
+                <TableHead class="w-[50px]">
+                  <span>
+                    <Checkbox
+                      :checked="isAllSelected"
+                      @update:checked="toggleSelectAll"
+                    />
+                  </span>
                 </TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
@@ -295,11 +297,13 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
 
             <TableBody>
               <TableRow v-for="subscriber in subscribers.data" :key="subscriber.id">
-                <TableCell class="w-[50px] flex items-center">
-                  <Checkbox
-                    :checked="selected.includes(subscriber.id)"
-                    @update:checked="(checked) => toggleSubscriber(subscriber.id, checked)"
-                  />
+                <TableCell class="w-[50px]">
+                  <span>
+                    <Checkbox
+                      :checked="selected.includes(subscriber.id)"
+                      @update:checked="(checked) => toggleSubscriber(subscriber.id, checked)"
+                    />
+                  </span>
                 </TableCell>
                 <TableCell>{{ subscriber.email }}</TableCell>
                 <TableCell>{{ subscriber.first_name }} {{ subscriber.last_name }}</TableCell>

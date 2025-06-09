@@ -100,6 +100,22 @@ class HandleInertiaRequests extends Middleware
         ] : null,
         'current_team' => $request->user()?->currentTeam,
         'current_organization' => $request->user()?->currentTeam?->organization,
+        'teams' => $request->user()?->allTeams()->map(function ($team) {
+          return [
+            'uuid' => $team->uuid,
+            'name' => $team->name,
+            'personal_team' => $team->personal_team,
+            'organization_id' => $team->organization_id,
+            'organization_name' => $team->organization?->name,
+            'organization_uuid' => $team->organization?->uuid,
+            'plan' => $team?->plan ?? 'Free',
+            'can' => [
+              'view' => $team->hasPermissionTo('team:view'),
+              'settings_edit' => $team->hasPermissionTo('team:settings:edit'),
+              'delete' => $team->hasPermissionTo('team:delete'),
+            ],
+          ];
+        })->values() ?: [],
       ],
       'ziggy' => [
         ...(new Ziggy)->toArray(),

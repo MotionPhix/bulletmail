@@ -15,9 +15,12 @@ import {
   ChartLineIcon
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
+import TeamSwitcher from '@/components/TeamSwitcher.vue';
 
 const page = usePage<SharedData>();
 const user = page.props.auth.user;
+const teams = page.props.auth.teams || [];
+const currentTeam = page.props.auth.current_team || { uuid: '', name: '', logo: null, plan: '' };
 
 const mainNavItems: NavItem[] = [
   {
@@ -26,9 +29,9 @@ const mainNavItems: NavItem[] = [
     icon: LayoutGrid,
   },
   {
-    title: 'Organization',
-    href: route('organizations.show', page.props.auth.current_organization?.uuid),
-    icon: Building2,
+    title: 'Subscribers',
+    href: route('subscribers.index'),
+    icon: Users,
   },
   {
     title: 'Templates',
@@ -39,11 +42,6 @@ const mainNavItems: NavItem[] = [
     title: 'Campaigns',
     href: route('campaigns.index'),
     icon: Mail,
-  },
-  {
-    title: 'Subscribers',
-    href: route('subscribers.index'),
-    icon: Users,
   },
   {
     title: 'Automations',
@@ -62,19 +60,20 @@ const footerNavItems: NavItem[] = [
 </script>
 
 <template>
-  <Sidebar collapsible="icon"
-           variant="inset">
+  <Sidebar collapsible="icon" variant="inset">
     <SidebarHeader>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg"
-                             as-child>
-            <Link :href="route('dashboard')">
-            <AppLogo />
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+      <!--      <SidebarMenu>-->
+      <!--        <SidebarMenuItem>-->
+      <!--          <SidebarMenuButton-->
+      <!--            size="lg"-->
+      <!--            as-child>-->
+      <!--            <Link :href="route('dashboard')">-->
+      <!--            <AppLogo />-->
+      <!--            </Link>-->
+      <!--          </SidebarMenuButton>-->
+      <!--        </SidebarMenuItem>-->
+      <!--      </SidebarMenu>-->
+      <TeamSwitcher :teams="teams" :active-team="currentTeam" />
     </SidebarHeader>
 
     <SidebarContent>
