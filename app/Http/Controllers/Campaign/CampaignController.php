@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Campaign;
 
+use App\Http\Controllers\Controller;
 use App\Models\Campaign;
 use App\Services\CampaignService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
