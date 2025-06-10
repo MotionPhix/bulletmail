@@ -13,33 +13,68 @@ import {
   SendHorizonal,
   MailOpen,
   MousePointer,
-  AlertTriangle
+  AlertTriangle,
+  Settings,
+  UserPlus,
 } from 'lucide-vue-next';
+import { Link } from '@inertiajs/vue3';
 
-const props = defineProps({
-  organization: Object,
-  team: Object,
-  isOwner: Boolean,
-  teamStats: Object,
-  campaignStats: Object,
-  subscriberTrends: Object,
-  campaignHistory: Array
-});
+interface Props {
+  organization: {
+    name: string
+    uuid: string
+  }
+  team: {
+    name: string
+    uuid: string
+    recent_activities: Array<{
+      id: number
+      description: string
+      causer_name: string
+      causer_avatar: string
+      created_at: string
+    }>
+  }
+  teamStats: {
+    members_count: number
+    subscribers_count: number
+    campaigns_count: number
+    active_automations: number
+  }
+  campaignStats: {
+    total_sent: number
+    total_opened: number
+    total_clicked: number
+    total_bounced: number
+  }
+  subscriberTrends: Record<string, number>
+}
+
+const props = defineProps<Props>();
 
 const breadcrumbs = computed(() => [
   {
     title: props.organization.name,
-    href: route('organizations.show', props.organization)
+    href: route('dashboard')
   },
   {
     title: props.team.name,
-    href: route('teams.show', props.team)
-  },
-  {
-    title: 'Dashboard',
-    href: route('teams.show', props.team)
+    href: '#'
   }
 ]);
+
+const teamActions = [
+  {
+    label: 'Team Settings',
+    icon: Settings,
+    href: route('teams.settings.general.edit')
+  },
+  {
+    label: 'Invite Members',
+    icon: UserPlus,
+    href: route('teams.settings.members.index')
+  }
+];
 
 const subscriberTrendData = computed(() => {
   const months = Object.keys(props.subscriberTrends || {});
@@ -87,11 +122,24 @@ const engagementRatesData = computed(() => {
   <Head :title="`${team.name} Dashboard`" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="space-y-6 p-6">
-      <!-- Team Overview -->
-      <div>
-        <h1 class="text-2xl font-semibold">{{ team.name }}</h1>
-        <p class="text-muted-foreground">Team Overview</p>
+    <div class="space-y-6 p-6 max-w-4xl">
+      <!-- Team Header with Actions -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold">{{ team.name }}</h1>
+          <p class="text-muted-foreground">Team Dashboard</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <Link
+            v-for="action in teamActions"
+            :key="action.label"
+            :href="action.href"
+            class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <component :is="action.icon" class="size-4" />
+            {{ action.label }}
+          </Link>
+        </div>
       </div>
 
       <!-- Team Stats -->

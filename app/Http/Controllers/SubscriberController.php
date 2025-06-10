@@ -123,9 +123,18 @@ class SubscriberController extends Controller
     return back()->with('success', $result['message']);
   }
 
+  public function upload(Request $request)
+  {
+    return Inertia::render('subscribers/Import', [
+      'lists' => $request->user()->currentTeam?->mailingLists()
+        ->select('id', 'name')
+        ->get()
+    ]);
+  }
+
   public function import(Request $request)
   {
-    $this->validate($request, [
+    $request->validate([
       'file' => ['required', 'file', 'mimes:csv,txt,xlsx', 'max:10240'],
       'options' => ['sometimes', 'array']
     ]);

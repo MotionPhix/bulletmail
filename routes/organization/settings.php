@@ -8,21 +8,24 @@ use App\Http\Controllers\Organization\Settings\{
 };
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'organization.access'])
-  ->prefix('organizations/{organization:uuid}/settings')
-  ->name('organization.settings.')
+Route::prefix('settings')
+  ->name('settings.')
   ->group(function () {
     // General Settings
-    Route::get('/', [GeneralController::class, 'edit'])->name('general');
-    Route::put('/', [GeneralController::class, 'update']);
+    Route::controller(GeneralController::class)->group(function () {
+      Route::get('/general', 'edit')->name('general.edit');
+      Route::put('/general/{organization:uuid}', 'update')->name('general.update');
+    });
 
     // Branding Settings
-    Route::controller(BrandingController::class)->group(function () {
-      Route::get('/branding', 'edit')->name('branding');
-      Route::put('/branding', 'update')->name('branding.update');
-      Route::delete('/branding/logo', 'deleteLogo')->name('branding.logo.delete');
-      Route::post('/branding/logo/regenerate', 'regenerateConversions')->name('branding.logo.regenerate');
-    });
+    Route::controller(BrandingController::class)
+      ->prefix('branding')
+      ->group(function () {
+        Route::get('/', 'edit')->name('branding.edit');
+        Route::put('/{organization:uuid}', 'update')->name('branding.update');
+        Route::delete('/d/logo/{organization:uuid}', 'deleteLogo')->name('branding.logo.delete');
+        Route::post('/r/logo/{organization:uuid}', 'regenerateConversions')->name('branding.logo.regenerate');
+      });
 
     // Billing Settings
     Route::get('/billing', [BillingController::class, 'edit'])->name('billing');
@@ -31,5 +34,5 @@ Route::middleware(['auth', 'verified', 'organization.access'])
 
     // Integrations Settings
     Route::get('/integrations', [IntegrationsController::class, 'edit'])->name('integrations');
-    Route::put('/integrations', [IntegrationsController::class, 'update']);
+    Route::put('/integrations/{organization:uuid}', [IntegrationsController::class, 'update'])->name('integrations.update');
   });

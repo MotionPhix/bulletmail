@@ -10,137 +10,63 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-  /*public function index(Request $request)
-  {
-    $user = $request->user();
-
-    // If user is an organization owner
-    if ($ownedOrg = $user->ownedOrganizations()->first()) {
-      $organization = $ownedOrg;
-
-      // Set current team if not set (use first team or create default)
-      if (!$user->current_team_id) {
-        $team = $organization->teams()->first() ?? Team::create([
-          'name' => $organization->name . ' Team',
-          'owner_id' => $user->id,
-          'organization_id' => $organization->id,
-          'personal_team' => true
-        ]);
-        $user->forceFill(['current_team_id' => $team->id])->save();
-      }
-
-      return Inertia::render('organization/Dashboard', [
-        'organization' => $organization,
-        'teams' => $organization->teams,
-        'currentTeam' => $user->currentTeam,
-        'isOwner' => true
-      ]);
-    }
-
-    // If user is a team member
-    if ($team = $user->currentTeam) {
-      $organization = $team->organization;
-      return Inertia::render('team/Dashboard', [
-        'organization' => $organization,
-        'team' => $team,
-        'isOwner' => false
-      ]);
-    }
-
-    $organization = $user->currentTeam->organization;
-
-    return Inertia::render('Dashboard', [
-      'organization' => $organization->load('teams.owner'),
-      'stats' => $organization->getStats(),
-      'campaignStats' => $organization->getCampaignStats(),
-      'subscriberGrowth' => $organization->getSubscriberGrowth(),
-      'currentTeam' => $user->currentTeam,
-      'canManageTeams' => $user->can('create', Team::class),
-    ]);
-  }*/
-
   public function index(Request $request): Response
   {
     $user = $request->user();
+    $team = $user->currentTeam;
+    $organization = $team->organization;
 
-    // Ensure user has an organization and team
-    $organization = $this->ensureOrganizationAndTeam($user);
+    // Get campaign stats through proper relationship
+    $campaignStats = $team->campaigns()
+      ->join('campaign_stats', 'campaigns.id', '=', 'campaign_stats.campaign_id')
+      ->selectRaw('
+                SUM(recipients_count) as total_sent,
+                SUM(opened_count) as total_opened,
+                SUM(clicked_count) as total_clicked,
+                SUM(bounced_count) as total_bounced
+            ')
+      ->first();
 
-    // Load common data needed for all dashboard views
-    $commonData = [
-      'organization' => $organization->load('teams.owner'),
-      'currentTeam' => $user->currentTeam,
-      'stats' => $organization->getStats(),
-      'campaignStats' => $organization->getCampaignStats(),
-      'subscriberGrowth' => $organization->getSubscriberGrowth(),
-    ];
-
-    // Determine which dashboard view to show based on user role
-    if ($user->isOrganizationOwner($organization)) {
-      return $this->renderOrganizationDashboard($commonData);
-    }
-
-    return $this->renderTeamDashboard($commonData);
-  }
-
-  protected function ensureOrganizationAndTeam($user): Organization
-  {
-    // Get organization (owned or through team membership)
-    $organization = $user->ownedOrganizations()->first()
-      ?? $user->currentTeam?->organization;
-
-    if (!$organization) {
-      abort(404, 'No organization found');
-    }
-
-    // Ensure user has a current team
-    if (!$user->current_team_id) {
-      $team = $organization->teams()->first();
-
-      if (!$team) {
-        $team = Team::create([
-          'name' => $organization->name . ' Team',
-          'owner_id' => $organization->owner_id,
-          'organization_id' => $organization->id,
-          'personal_team' => true
-        ]);
-      }
-
-      $user->forceFill(['current_team_id' => $team->id])->save();
-    }
-
-    return $organization;
-  }
-
-  protected function renderOrganizationDashboard(array $data): Response
-  {
-    return Inertia::render('organization/Dashboard', [
-      ...$data,
-      'canManageTeams' => true,
-      'teams' => $data['organization']->teams->map(fn($team) => [
-        'id' => $team->id,
-        'uuid' => $team->uuid,
+    return Inertia::render('team/Dashboard', [
+      'organization' => [
+        'name' => $organization->name,
+        'uuid' => $organization->uuid,
+      ],
+      'team' => [
         'name' => $team->name,
-        'owner' => $team->owner->name,
+        'uuid' => $team->uuid,
+        'recent_activities' => collect($team->recent_activities)->map(fn($activity) => [
+          'id' => $activity['id'],
+          'description' => $activity['description'],
+          'causer_name' => $activity['user']['name'],
+          'causer_avatar' => $activity['user']['avatar'],
+          'created_at' => $activity['created_at']->diffForHumans(),
+        ])
+      ],
+      'teamStats' => [
         'members_count' => $team->users()->count(),
         'subscribers_count' => $team->subscribers()->count(),
         'campaigns_count' => $team->campaigns()->count(),
-        'is_current' => $team->id === $data['currentTeam']->id
-      ])
+        'active_automations' => 0, // $team->automations()->where('status', 'active')->count(),
+      ],
+      'campaignStats' => [
+        'total_sent' => $campaignStats->total_sent ?? 0,
+        'total_opened' => $campaignStats->total_opened ?? 0,
+        'total_clicked' => $campaignStats->total_clicked ?? 0,
+        'total_bounced' => $campaignStats->total_bounced ?? 0,
+      ],
+      'subscriberTrends' => $this->getSubscriberTrends($team),
     ]);
   }
 
-  protected function renderTeamDashboard(array $data): Response
+  protected function getSubscriberTrends(Team $team): array
   {
-    return Inertia::render('team/Dashboard', [
-      ...$data,
-      'canManageTeam' => $data['currentTeam']->userHasRole($data['currentTeam'], 'admin'),
-      'teamStats' => [
-        'members_count' => $data['currentTeam']->users()->count(),
-        'subscribers_count' => $data['currentTeam']->subscribers()->count(),
-        'campaigns_count' => $data['currentTeam']->campaigns()->count(),
-        'active_automations' => $data['currentTeam']->automations()->where('status', 'active')->count(),
-      ]
-    ]);
+    return $team->subscribers()
+      ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, COUNT(*) as count')
+      ->whereYear('created_at', now()->year)
+      ->groupBy('month')
+      ->orderBy('month')
+      ->pluck('count', 'month')
+      ->toArray();
   }
 }

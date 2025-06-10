@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\UploadedFile;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Models\{Subscriber, Team, MailingList};
 use App\Enums\SubscriberStatus;
 use Illuminate\Support\Collection;
@@ -62,76 +64,120 @@ class SubscriberService
     });
   }
 
-  public function import(Team $team, array $rows, array $options = []): array
+  public function import(Team $team, UploadedFile $file, array $options = []): array
   {
     $results = [
       'total' => 0,
-      'imported' => 0,
+      'created' => 0,
       'updated' => 0,
       'failed' => 0,
       'errors' => []
     ];
 
-    DB::transaction(function () use ($team, $rows, $options, &$results) {
-      foreach ($rows as $index => $row) {
-        $results['total']++;
+    try {
+      $import = new class($team, $options['update_existing'] ?? false, $results) implements
+        \Maatwebsite\Excel\Concerns\ToCollection,
+        \Maatwebsite\Excel\Concerns\WithHeadingRow,
+        \Maatwebsite\Excel\Concerns\WithChunkReading {
 
-        try {
-          $this->processImportRow($team, $row, $options, $results, $index + 2);
-        } catch (\Exception $e) {
-          $results['failed']++;
-          $results['errors'][] = [
-            'row' => $index + 2,
-            'data' => $row,
-            'errors' => ['system' => [$e->getMessage()]]
-          ];
+        private $team;
+        private $updateExisting;
+        private $importResults;
+
+        public function __construct(Team $team, bool $updateExisting, array &$results)
+        {
+          $this->team = $team;
+          $this->updateExisting = $updateExisting;
+          $this->importResults = &$results;
         }
-      }
-    });
 
-    return $results;
-  }
+        public function collection(Collection $collection)
+        {
+          foreach ($collection as $row) {
+            $this->importResults['total']++;
 
-  protected function processImportRow(Team $team, array $data, array $options, array &$results, int $rowNumber): void
-  {
-    // Validate the row
-    $validator = Validator::make($data, [
-      'email' => ['required', 'email', Rule::unique('subscribers', 'email')
-        ->where('team_id', $team->id)
-        ->ignore(optional(Subscriber::where('email', $data['email'])
-          ->where('team_id', $team->id)
-          ->first())->id)],
-      'first_name' => 'required|string|max:255',
-      'last_name' => 'required|string|max:255',
-      'status' => ['nullable', Rule::in(array_column(SubscriberStatus::cases(), 'value'))]
-    ]);
+            try {
+              // Handle case-insensitive headers
+              $email = $row['email'] ?? $row['Email'] ?? $row['EMAIL'] ?? null;
+              $firstName = $row['first_name'] ?? $row['First Name'] ?? $row['FIRST_NAME'] ?? null;
+              $lastName = $row['last_name'] ?? $row['Last Name'] ?? $row['LAST_NAME'] ?? null;
+              $status = $row['status'] ?? $row['Status'] ?? $row['STATUS'] ?? null;
 
-    if ($validator->fails()) {
-      $results['failed']++;
-      $results['errors'][] = [
-        'row' => $rowNumber,
-        'data' => $data,
-        'errors' => $validator->errors()->toArray()
+              // Validate required fields and email format
+              if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new \Exception('Invalid or missing email address');
+              }
+
+              if (empty($firstName) || empty($lastName)) {
+                throw new \Exception('Missing required fields (first_name or last_name)');
+              }
+
+              $data = [
+                'email' => strtolower(trim($email)),
+                'first_name' => trim($firstName),
+                'last_name' => trim($lastName),
+                'status' => $status ?? SubscriberStatus::SUBSCRIBED->value
+              ];
+
+              $existingSubscriber = $this->team->subscribers()
+                ->where('email', $data['email'])
+                ->first();
+
+              if ($existingSubscriber) {
+                if ($this->updateExisting) {
+                  $existingSubscriber->update($data);
+                  $this->importResults['updated']++;
+                }
+              } else {
+                $this->team->subscribers()->create(array_merge($data, [
+                  'user_id' => auth()->id(),
+                  'source' => 'import',
+                  'subscribed_at' => now(),
+                  'ip_address' => request()->ip()
+                ]));
+                $this->importResults['created']++;
+              }
+            } catch (\Exception $e) {
+              $this->importResults['failed']++;
+              $this->importResults['errors'][] = sprintf(
+                'Row %d: %s (Email: %s)',
+                $this->importResults['total'],
+                $e->getMessage(),
+                $email ?? 'unknown'
+              );
+            }
+          }
+        }
+
+        public function chunkSize(): int
+        {
+          return 1000;
+        }
+      };
+
+      // Wrap import in database transaction for data integrity
+      DB::transaction(function() use ($import, $file) {
+        Excel::import($import, $file);
+      });
+
+      return [
+        'success' => true,
+        'message' => sprintf(
+          'Import completed: %d processed, %d created, %d updated, %d failed',
+          $results['total'],
+          $results['created'],
+          $results['updated'],
+          $results['failed']
+        ),
+        'data' => $results
       ];
-      return;
-    }
 
-    // Set default status if not provided
-    $data['status'] ??= SubscriberStatus::SUBSCRIBED->value;
-
-    // Try to find existing subscriber
-    $subscriber = $team->subscribers()
-      ->where('email', $data['email'])
-      ->first();
-
-    if ($subscriber) {
-      if ($options['update_existing'] ?? true) {
-        $this->update($subscriber, $data);
-        $results['updated']++;
-      }
-    } else {
-      $this->create($team, $data);
-      $results['imported']++;
+    } catch (\Exception $e) {
+      return [
+        'success' => false,
+        'message' => 'Import failed: ' . $e->getMessage(),
+        'errors' => [$e->getMessage()]
+      ];
     }
   }
 

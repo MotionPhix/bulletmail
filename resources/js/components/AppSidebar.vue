@@ -30,22 +30,22 @@ const mainNavItems: NavItem[] = [
   },
   {
     title: 'Subscribers',
-    href: route('subscribers.index'),
+    href: route('app.subscribers.index'),
     icon: Users,
   },
   {
     title: 'Templates',
-    href: route('templates.index'),
+    href: route('app.templates.index'),
     icon: FileText,
   },
   {
     title: 'Campaigns',
-    href: route('campaigns.index'),
+    href: route('app.campaigns.index'),
     icon: Mail,
   },
   {
     title: 'Automations',
-    href: route('automations.index'),
+    href: route('app.automations.index'),
     icon: PlayCircle,
   }
 ];
@@ -53,7 +53,7 @@ const mainNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [
   {
     title: 'Analytics',
-    href: route('analytics.index'),
+    href: route('app.analytics.index'),
     icon: ChartLineIcon,
   },
 ];

@@ -14,8 +14,10 @@ use Spatie\MediaLibrary\MediaCollections\Exceptions\FileIsTooBig;
 
 class BrandingController extends Controller
 {
-  public function edit(Organization $organization): Response
+  public function edit(): Response
   {
+    $organization = auth()->user()->currentTeam->organization;
+
     return Inertia::render('organization/settings/Branding', [
       'organization' => $organization->load('media'),
       'brandingConfig' => $organization->getBrandingConfig(),

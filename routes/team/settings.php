@@ -7,56 +7,57 @@ use App\Http\Controllers\Team\Settings\{
 };
 use Illuminate\Support\Facades\Route;
 
-Route::group(['prefix' => 'settings'], function () {
-  Route::get(
-    '/teams',
-    [GeneralController::class, 'edit']
-  )->name('teams.settings');
+Route::name('settings.')
+  ->group(function () {
+    Route::get(
+      '/general',
+      [GeneralController::class, 'edit']
+    )->name('general.edit');
 
-  Route::put(
-    '/teams/general',
-    [GeneralController::class, 'update']
-  )->name('teams.settings.general');
+    Route::put(
+      '/general',
+      [GeneralController::class, 'update']
+    )->name('general.update');
 
-  // Members
-  Route::get(
-    '/team/members',
-    [MembersController::class, 'index']
-  )->name('teams.settings.members');
+    // Members
+    Route::get(
+      '/members',
+      [MembersController::class, 'index']
+    )->name('members.index');
 
-  Route::post(
-    '/team/members/invite',
-    [MembersController::class, 'invite']
-  )->name('teams.settings.members.invite');
+    Route::post(
+      '/members/invite',
+      [MembersController::class, 'invite']
+    )->name('members.invite');
 
-  Route::put(
-    '/team/members/{user}',
-    [MembersController::class, 'update']
-  )->name('teams.settings.members.update');
+    Route::put(
+      '/members/{user}',
+      [MembersController::class, 'update']
+    )->name('members.update');
 
-  Route::delete(
-    '/team/members/r/{user:uuid}',
-    [MembersController::class, 'remove']
-  )->name('teams.settings.members.remove');
+    Route::delete(
+      '/members/r/{user:uuid}',
+      [MembersController::class, 'remove']
+    )->name('members.remove');
 
-  // Roles
-  Route::get(
-    '/team/roles',
-    [RolesController::class, 'index']
-  )->name('teams.settings.roles');
+    // Roles
+    Route::get(
+      '/roles',
+      [RolesController::class, 'index']
+    )->name('roles.index');
 
-  Route::post(
-    '/team/roles',
-    [RolesController::class, 'store']
-  )->name('teams.settings.roles.store');
+    Route::post(
+      '/roles',
+      [RolesController::class, 'store']
+    )->name('roles.store');
 
-  Route::put(
-    '/team/roles/{role}',
-    [RolesController::class, 'update']
-  )->name('teams.settings.roles.update');
+    Route::put(
+      '/roles/{role}',
+      [RolesController::class, 'update']
+    )->name('roles.update');
 
-  Route::delete(
-    '/team/roles/{role}',
-    [RolesController::class, 'destroy']
-  )->name('teams.settings.roles.destroy');
-});
+    Route::delete(
+      '/roles/{role}',
+      [RolesController::class, 'destroy']
+    )->name('roles.destroy');
+  });

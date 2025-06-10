@@ -10,7 +10,7 @@ Route::get('/', function () {
   return Inertia::render('Welcome');
 })->name('home');
 
-// Protected routes
+/*// Protected routes
 Route::middleware(['auth', 'verified'])->group(function () {
   // Dashboard
   Route::get(
@@ -44,15 +44,69 @@ Route::middleware(['auth', 'verified'])->group(function () {
       Route::delete('/{team:uuid}', 'destroy')->name('teams.destroy');
       Route::put('/switch', 'switch')->name('teams.switch');
     });
+});*/
+
+Route::middleware(['auth', 'verified'])->group(function () {
+  // Dashboard
+  Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['organization.access'])
+    ->name('dashboard');
+
+  // Organization Settings (implicitly uses current organization)
+  Route::middleware(['organization.access'])
+    ->name('organization.')
+    ->group(function () {
+      require __DIR__ . '/organization/settings.php';
+    });
+
+  // Team-specific routes
+  Route::middleware(['team.access'])->group(function () {
+    // Teams Management
+    Route::controller(TeamTeamController::class)
+      ->prefix('teams')
+      ->name('teams.')
+      ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::get('/s/{team:uuid}', 'show')->name('show');
+        Route::put('/switch', 'switch')->name('switch');
+      });
+
+    // Features (uses current team context)
+    Route::prefix('app')
+      ->name('app.')
+      ->group(function () {
+        require __DIR__ . '/team/campaigns.php';
+        require __DIR__ . '/team/subscribers.php';
+        require __DIR__ . '/team/automations.php';
+        require __DIR__ . '/team/analytics.php';
+        require __DIR__ . '/team/lists.php';
+        require __DIR__ . '/team/segments.php';
+      });
+
+    // Team Settings
+    Route::prefix('settings/team')
+      ->name('teams.')
+      ->group(function () {
+        require __DIR__ . '/team/settings.php';
+      });
+  });
 });
 
-require __DIR__ . '/organization/settings.php';
-require __DIR__ . '/team/settings.php';
-require __DIR__ . '/campaigns.php';
-require __DIR__ . '/subscribers.php';
-require __DIR__ . '/automations.php';
-require __DIR__ . '/analytics.php';
+// Public Subscriber Actions (no auth required)
+Route::prefix('s')
+  ->controller(\App\Http\Controllers\SubscriberController::class)
+  ->group(function () {
+    Route::get('/unsubscribe/{uuid}', 'unsubscribe')
+      ->name('subscribers.unsubscribe');
+
+    Route::get('/preferences/{uuid}', 'preferences')
+      ->name('subscribers.preferences');
+
+    Route::put('/preferences/{uuid}', 'updatePreferences')
+      ->name('subscribers.preferences.update');
+  });
+
 require __DIR__ . '/settings.php';
-require __DIR__ . '/lists.php';
-require __DIR__ . '/segments.php';
 require __DIR__ . '/auth.php';

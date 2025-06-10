@@ -13,8 +13,19 @@ use Inertia\Response;
 
 class BillingController extends Controller
 {
-  public function edit(Organization $organization): Response
+  protected function getOrganization()
   {
+    return auth()->user()->currentTeam->organization;
+  }
+
+  /**
+   * Show the billing settings page.
+   *
+   * @return \Inertia\Response
+   */
+  public function edit(): Response
+  {
+    $organization = $this->getOrganization();
     $currentSubscription = $organization->subscription;
     $currentPlan = $currentSubscription?->plan;
 
@@ -44,11 +55,12 @@ class BillingController extends Controller
   }
 
   public function subscribe(
-    Organization $organization,
     Plan $plan
   ): RedirectResponse {
     try {
       DB::beginTransaction();
+
+      $organization = $this->getOrganization();
 
       // Cancel current subscription if exists
       if ($currentSub = $organization->subscription) {
@@ -76,10 +88,12 @@ class BillingController extends Controller
     }
   }
 
-  public function cancel(Organization $organization): RedirectResponse
+  public function cancel(): RedirectResponse
   {
     try {
       DB::beginTransaction();
+
+      $organization = $this->getOrganization();
 
       $currentSub = $organization->subscription;
 

@@ -85,7 +85,7 @@ const page = usePage();
 const getStatusBadgeVariant = (status: string) => {
   return (
     {
-      active: 'success',
+      subscribed: 'default',
       unsubscribed: 'destructive',
       bounced: 'warning',
     }[status] || 'secondary'
@@ -93,7 +93,7 @@ const getStatusBadgeVariant = (status: string) => {
 };
 
 const applyFilters = () => {
-  router.get(route('subscribers.index'), filters, {
+  router.get(route('app.subscribers.index'), filters, {
     preserveState: true,
     replace: true,
   });
@@ -102,7 +102,7 @@ const applyFilters = () => {
 const breadcrumbs = computed(() => [
   {
     title: page.props.auth.current_organization.name,
-    href: route('organizations.show', page.props.auth.current_organization.uuid),
+    href: route('dashboard'),
   },
   {
     title: page.props.auth.current_team.name,
@@ -110,7 +110,7 @@ const breadcrumbs = computed(() => [
   },
   {
     title: 'Subscribers List',
-    href: route('subscribers.index'),
+    href: '#',
   },
 ]);
 
@@ -137,7 +137,6 @@ const toggleSelectAll = (checked: boolean) => {
   selected.value = checked ? props.subscribers.data.map((s) => s.id) : [];
 };
 
-// Add the missing toggleSubscriber function
 const toggleSubscriber = (subscriberId: number, checked: boolean) => {
   if (checked) {
     // Add to selection if not already present
@@ -165,30 +164,23 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
         </div>
 
         <div class="mt-4 space-x-2 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Button variant="outline" @click="router.get(route('subscribers.export'))">
+          <Button variant="outline" @click="router.get(route('app.subscribers.export'))">
             <DownloadIcon />
             Export
           </Button>
 
-          <Button>
+          <Button
+            :as="ModalLink"
+            :href="route('app.subscribers.upload')">
             <UploadIcon />
             Import
           </Button>
 
-          <Button variant="ghost" :as="ModalLink" :href="route('subscribers.create')">
+          <Button variant="ghost" :as="ModalLink" :href="route('app.subscribers.create')">
             <PlusIcon />
             Add
           </Button>
         </div>
-      </div>
-
-      <!-- Stats -->
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          v-for="(value, key) in stats" :key="key"
-          :title="key.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())"
-          :value="formatNumber(value)"
-        />
       </div>
 
       <!-- Filters -->
@@ -230,6 +222,15 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
             </SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          v-for="(value, key) in stats" :key="key"
+          :title="key.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())"
+          :value="formatNumber(value)"
+        />
       </div>
 
       <!-- Bulk Actions -->
@@ -278,13 +279,13 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead class="w-[50px]">
-                  <span>
+                <TableHead class="w-[30px]">
+                  <div class="flex items-center">
                     <Checkbox
-                      :checked="isAllSelected"
-                      @update:checked="toggleSelectAll"
+                      :model-value="isAllSelected"
+                      @update:model-value="toggleSelectAll"
                     />
-                  </span>
+                  </div>
                 </TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
@@ -297,25 +298,27 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
 
             <TableBody>
               <TableRow v-for="subscriber in subscribers.data" :key="subscriber.id">
-                <TableCell class="w-[50px]">
-                  <span>
+                <TableCell class="w-[30px]">
+                  <div class="flex items-center">
                     <Checkbox
-                      :checked="selected.includes(subscriber.id)"
-                      @update:checked="(checked) => toggleSubscriber(subscriber.id, checked)"
+                      :model-value="selected.includes(subscriber.id)"
+                      @update:model-value="(checked) => toggleSubscriber(subscriber.id, checked)"
                     />
-                  </span>
+                  </div>
                 </TableCell>
                 <TableCell>{{ subscriber.email }}</TableCell>
                 <TableCell>{{ subscriber.first_name }} {{ subscriber.last_name }}</TableCell>
                 <TableCell>
-                  <Badge :variant="getStatusBadgeVariant(subscriber.status)">
+                  <Badge
+                    class="capitalize"
+                    :variant="getStatusBadgeVariant(subscriber.status)">
                     {{ subscriber.status }}
                   </Badge>
                 </TableCell>
                 <TableCell>{{ subscriber.lists?.length || 0 }} lists</TableCell>
                 <TableCell>{{ new Date(subscriber.created_at).toLocaleDateString() }}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" :href="route('subscribers.show', subscriber.uuid)"> View</Button>
+                  <Button variant="ghost" size="sm" :href="route('app.subscribers.show', subscriber.uuid)"> View</Button>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -329,7 +332,7 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
 
           <Button
             :as="ModalLink"
-            :href="route('subscribers.create')"
+            :href="route('app.subscribers.create')"
             class="mt-4">
             <PlusIcon />
             Or add subscriber

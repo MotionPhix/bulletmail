@@ -10,9 +10,7 @@ defineProps<{
 const page = usePage<SharedData>();
 
 const isActive = (item: NavItem) => {
-  console.log(page.url, item.href);
-
-  return item.href === page.url;
+  return new URL(item.href).pathname === page.url;
 };
 </script>
 
@@ -20,15 +18,15 @@ const isActive = (item: NavItem) => {
   <SidebarGroup class="px-2 py-0">
     <SidebarGroupLabel>Platform</SidebarGroupLabel>
     <SidebarMenu>
-      <template v-for="item in items"
-                :key="item.title">
+      <template v-for="item in items" :key="item.title">
         <SidebarMenuItem>
-          <SidebarMenuButton as-child
-                             :is-active="item.href === page.url"
-                             :tooltip="item.title">
+          <SidebarMenuButton
+            as-child
+            :is-active="isActive(item)"
+            :tooltip="item.title">
             <Link :href="item.href">
-            <component :is="item.icon" />
-            <span>{{ item.title }}</span>
+              <component :is="item.icon" />
+              <span>{{ item.title }}</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

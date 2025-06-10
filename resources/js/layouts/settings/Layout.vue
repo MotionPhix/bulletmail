@@ -8,13 +8,10 @@ import {
   Building2,
   PaintBucket,
   CreditCard,
-  Settings,
-  Shield,
   Webhook,
   UserIcon,
   PaletteIcon,
   LockIcon,
-  UsersIcon
 } from 'lucide-vue-next';
 
 const page = usePage();
@@ -48,38 +45,23 @@ const sidebarNavItems: NavItem[] = [
 const adminSidebarNavItems: NavItem[] = [
   {
     title: 'General',
-    href: route('organization.settings.general', org?.uuid),
+    href: route('organization.settings.general.edit'),
     icon: Building2
   },
   {
     title: 'Branding',
-    href: route('organization.settings.branding', org?.uuid),
+    href: route('organization.settings.branding.edit'),
     icon: PaintBucket
   },
   {
     title: 'Billing',
-    href: route('organization.settings.billing', org?.uuid),
+    href: route('organization.settings.billing'),
     icon: CreditCard
   },
   {
     title: 'Integrations',
-    href: route('organization.settings.integrations', org?.uuid),
+    href: route('organization.settings.integrations'),
     icon: Webhook
-  },
-  {
-    title: 'Team Settings',
-    href: route('teams.settings.general', team?.uuid),
-    icon: Settings
-  },
-  {
-    title: 'Members',
-    href: route('teams.settings.members', team?.uuid),
-    icon: UsersIcon
-  },
-  {
-    title: 'Roles',
-    href: route('teams.settings.roles', team?.uuid),
-    icon: Shield
   }
 ];
 
@@ -126,7 +108,7 @@ function isCurrent(href: string): boolean {
 
       <Separator class="my-6 md:hidden" />
 
-      <div class="flex-1 md:max-w-2xl pt-10 md:mt-0">
+      <div class="flex-1 md:max-w-2xl pt-10 sm:pt-0 md:mt-0">
         <section class="max-w-xl space-y-12">
           <slot />
         </section>

@@ -17,3 +17,138 @@
 
 /*'team_members.*.email.different' => 'You cannot invite yourself to the team.',
 'team_members.*.email.distinct' => 'Duplicate email addresses found in team invitations.',*/
+
+
+/*public function index(Request $request)
+  {
+    $user = $request->user();
+
+    // If user is an organization owner
+    if ($ownedOrg = $user->ownedOrganizations()->first()) {
+      $organization = $ownedOrg;
+
+      // Set current team if not set (use first team or create default)
+      if (!$user->current_team_id) {
+        $team = $organization->teams()->first() ?? Team::create([
+          'name' => $organization->name . ' Team',
+          'owner_id' => $user->id,
+          'organization_id' => $organization->id,
+          'personal_team' => true
+        ]);
+        $user->forceFill(['current_team_id' => $team->id])->save();
+      }
+
+      return Inertia::render('organization/Dashboard', [
+        'organization' => $organization,
+        'teams' => $organization->teams,
+        'currentTeam' => $user->currentTeam,
+        'isOwner' => true
+      ]);
+    }
+
+    // If user is a team member
+    if ($team = $user->currentTeam) {
+      $organization = $team->organization;
+      return Inertia::render('team/Dashboard', [
+        'organization' => $organization,
+        'team' => $team,
+        'isOwner' => false
+      ]);
+    }
+
+    $organization = $user->currentTeam->organization;
+
+    return Inertia::render('Dashboard', [
+      'organization' => $organization->load('teams.owner'),
+      'stats' => $organization->getStats(),
+      'campaignStats' => $organization->getCampaignStats(),
+      'subscriberGrowth' => $organization->getSubscriberGrowth(),
+      'currentTeam' => $user->currentTeam,
+      'canManageTeams' => $user->can('create', Team::class),
+    ]);
+  }*/
+
+  public function index(Request $request): Response
+  {
+    $user = $request->user();
+
+    // Ensure user has an organization and team
+    $organization = $this->ensureOrganizationAndTeam($user);
+
+    // Load common data needed for all dashboard views
+    $commonData = [
+      'organization' => $organization->load('teams.owner'),
+      'currentTeam' => $user->currentTeam,
+      'stats' => $organization->getStats(),
+      'campaignStats' => $organization->getCampaignStats(),
+      'subscriberGrowth' => $organization->getSubscriberGrowth(),
+    ];
+
+    // Determine which dashboard view to show based on user role
+    if ($user->isOrganizationOwner($organization)) {
+      return $this->renderOrganizationDashboard($commonData);
+    }
+
+    return $this->renderTeamDashboard($commonData);
+  }
+
+  protected function ensureOrganizationAndTeam($user): Organization
+  {
+    // Get organization (owned or through team membership)
+    $organization = $user->ownedOrganizations()->first()
+      ?? $user->currentTeam?->organization;
+
+    if (!$organization) {
+      abort(404, 'No organization found');
+    }
+
+    // Ensure user has a current team
+    if (!$user->current_team_id) {
+      $team = $organization->teams()->first();
+
+      if (!$team) {
+        $team = Team::create([
+          'name' => $organization->name . ' Team',
+          'owner_id' => $organization->owner_id,
+          'organization_id' => $organization->id,
+          'personal_team' => true
+        ]);
+      }
+
+      $user->forceFill(['current_team_id' => $team->id])->save();
+    }
+
+    return $organization;
+  }
+
+  protected function renderOrganizationDashboard(array $data): Response
+  {
+    return Inertia::render('organization/Dashboard', [
+      ...$data,
+      'canManageTeams' => true,
+      'teams' => $data['organization']->teams->map(fn($team) => [
+        'id' => $team->id,
+        'uuid' => $team->uuid,
+        'name' => $team->name,
+        'owner' => $team->owner->name,
+        'members_count' => $team->users()->count(),
+        'subscribers_count' => $team->subscribers()->count(),
+        'campaigns_count' => $team->campaigns()->count(),
+        'is_current' => $team->id === $data['currentTeam']->id
+      ])
+    ]);
+  }
+
+  protected function renderTeamDashboard(array $data): Response
+  {
+    return Inertia::render('team/Dashboard', [
+      ...$data,
+      'canManageTeam' => $data['currentTeam']->userHasRole($data['currentTeam'], 'admin'),
+      'teamStats' => [
+        'members_count' => $data['currentTeam']->users()->count(),
+        'subscribers_count' => $data['currentTeam']->subscribers()->count(),
+        'campaigns_count' => $data['currentTeam']->campaigns()->count(),
+        'active_automations' => $data['currentTeam']->automations()->where('status', 'active')->count(),
+      ]
+    ]);
+  }

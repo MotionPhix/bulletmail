@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
-import { PaletteIcon, MailIcon, AlertCircle } from 'lucide-vue-next';
-import AppLayout from '@/layouts/AppLayout.vue';
-import SettingsLayout from '@/layouts/settings/Layout.vue';
+import InputError from '@/components/InputError.vue';
+import LogoUploader from '@/components/LogoUploader.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { type Organization, type BreadcrumbItem, type Media } from '@/types';
-import LogoUploader from '@/components/LogoUploader.vue';
-import InputError from '@/components/InputError.vue';
+import AppLayout from '@/layouts/AppLayout.vue';
+import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { type BreadcrumbItem, type Media, type Organization } from '@/types';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { AlertCircle, MailIcon, PaletteIcon } from 'lucide-vue-next';
+import { ref } from 'vue';
+import HeadingSmall from '@/components/HeadingSmall.vue';
 
 interface Props {
   organization: Organization & {
@@ -32,9 +33,8 @@ interface Props {
 const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Organizations', href: route('organizations.index') },
-  { title: props.organization.name, href: route('organizations.show', props.organization.uuid) },
-  { title: 'Branding', href: route('organization.settings.branding', props.organization.uuid) }
+  { title: props.organization.name, href: route('dashboard') },
+  { title: 'Branding Settings', href: route('organization.settings.branding.edit') },
 ];
 
 const previewUrl = ref<string>(props.logo || '');
@@ -44,7 +44,7 @@ const form = useForm({
   secondary_color: props.organization.secondary_color || '#7C3AED',
   email_header: props.organization.email_header || '',
   email_footer: props.organization.email_footer || '',
-  logo: null as File | null
+  logo: null as File | null,
 });
 
 const handleLogoError = (message: string) => {
@@ -55,49 +55,52 @@ const deleteLogo = () => {
   if (!props.logo) return;
 
   router.delete(route('organization.settings.branding.logo.delete', props.organization.uuid), {
-    preserveScroll: true
+    preserveScroll: true,
   });
 };
 
 const regenerateConversions = () => {
   if (!props.logo) return;
 
-  router.post(route('organization.settings.branding.logo.regenerate', props.organization.uuid), {}, {
-    preserveScroll: true
-  });
+  router.post(
+    route('organization.settings.branding.logo.regenerate', props.organization.uuid),
+    {},
+    {
+      preserveScroll: true,
+    },
+  );
 };
 
 const submit = () => {
-  form.post(route('organization.settings.branding', props.organization.uuid), {
+  form.post(route('organization.settings.branding.update', props.organization.uuid), {
     preserveScroll: true,
     onSuccess: () => {
       if (form.logo) {
         URL.revokeObjectURL(previewUrl.value);
       }
       form.reset('logo');
-    }
+    },
   });
 };
 </script>
 
 <template>
   <AppLayout :breadcrumbs="breadcrumbs">
-
     <Head title="Branding Settings" />
 
-    <SettingsLayout type="organization"
-                    title="Branding Settings"
-                    description="Customize your organization's appearance">
-      <Alert v-if="Object.keys(form.errors).length > 0"
-             variant="destructive">
+    <SettingsLayout
+      type="organization">
+      <Alert v-if="Object.keys(form.errors).length > 0" variant="destructive">
         <AlertCircle class="h-4 w-4" />
-        <AlertDescription>
-          Please check the form for errors and try again.
-        </AlertDescription>
+        <AlertDescription> Please check the form for errors and try again. </AlertDescription>
       </Alert>
 
-      <form @submit.prevent="submit"
-            class="space-y-8">
+      <HeadingSmall
+        title="Branding Settings"
+        description="Customize your organization's appearance"
+      />
+
+      <form @submit.prevent="submit" class="space-y-8">
         <!-- Logo Section -->
         <LogoUploader
           v-model="form.logo"
@@ -114,33 +117,23 @@ const submit = () => {
         <!-- Colors Section -->
         <div class="space-y-4">
           <div class="flex items-center gap-2">
-            <PaletteIcon class="h-5 w-5 text-muted-foreground" />
-            <h3 class="font-semibold text-lg">Brand Colors</h3>
+            <PaletteIcon class="text-muted-foreground h-5 w-5" />
+            <h3 class="text-lg font-semibold">Brand Colors</h3>
           </div>
           <div class="grid gap-6">
             <div class="grid gap-2">
               <Label for="primary_color">Primary Color</Label>
               <div class="flex gap-2">
-                <Input id="primary_color"
-                       v-model="form.primary_color"
-                       type="color"
-                       class="w-12 p-1 h-10" />
-                <Input v-model="form.primary_color"
-                       type="text"
-                       :error="form.errors.primary_color" />
+                <Input id="primary_color" v-model="form.primary_color" type="color" class="h-10 w-12 p-1" />
+                <Input v-model="form.primary_color" type="text" :error="form.errors.primary_color" />
               </div>
             </div>
 
             <div class="grid gap-2">
               <Label for="secondary_color">Secondary Color</Label>
               <div class="flex gap-2">
-                <Input id="secondary_color"
-                       v-model="form.secondary_color"
-                       type="color"
-                       class="w-12 p-1 h-10" />
-                <Input v-model="form.secondary_color"
-                       type="text"
-                       :error="form.errors.secondary_color" />
+                <Input id="secondary_color" v-model="form.secondary_color" type="color" class="h-10 w-12 p-1" />
+                <Input v-model="form.secondary_color" type="text" :error="form.errors.secondary_color" />
               </div>
             </div>
           </div>
@@ -151,21 +144,19 @@ const submit = () => {
         <!-- Email Templates Section -->
         <div class="space-y-4">
           <div class="flex items-center gap-2">
-            <MailIcon class="h-5 w-5 text-muted-foreground" />
-            <h3 class="font-semibold text-lg">Email Templates</h3>
+            <MailIcon class="text-muted-foreground h-5 w-5" />
+            <h3 class="text-lg font-semibold">Email Templates</h3>
           </div>
 
-          <p class="text-sm text-muted-foreground">
-            Customize the header and footer that appear in all emails sent from your organization.
-            You can use HTML and the following variables: {organization_name}, {organization_address}, {unsubscribe_link}
+          <p class="text-muted-foreground text-sm">
+            Customize the header and footer that appear in all emails sent from your organization. You can use HTML and the following variables:
+            {organization_name}, {organization_address}, {unsubscribe_link}
           </p>
 
-          <section class="grid gap-y-8 mt-8">
+          <section class="mt-8 grid gap-y-8">
             <div class="grid gap-2">
               <Label for="email_header">Email Header Template</Label>
-              <p class="text-xs text-muted-foreground">
-                This appears at the top of all emails. Typically includes your logo and organization name.
-              </p>
+              <p class="text-muted-foreground text-xs">This appears at the top of all emails. Typically includes your logo and organization name.</p>
               <Textarea
                 id="email_header"
                 v-model="form.email_header"
@@ -182,9 +173,7 @@ const submit = () => {
                 "
               />
 
-              <p
-                v-if="!form.errors.email_header"
-                class="text-xs text-muted-foreground">
+              <p v-if="!form.errors.email_header" class="text-muted-foreground text-xs">
                 Tip: Keep the header simple and focused on your brand identity.
               </p>
 
@@ -194,7 +183,7 @@ const submit = () => {
             <div class="grid gap-2">
               <Label for="email_footer">Email Footer Template</Label>
 
-              <p class="text-xs text-muted-foreground">
+              <p class="text-muted-foreground text-xs">
                 This appears at the bottom of all emails. Usually contains contact information and unsubscribe link.
               </p>
 
@@ -216,23 +205,17 @@ const submit = () => {
                 "
               />
 
-              <p
-                v-if="!form.errors.email_footer"
-                class="text-xs text-muted-foreground">
+              <p v-if="!form.errors.email_footer" class="text-muted-foreground text-xs">
                 Note: The unsubscribe link is required by law for marketing emails.
               </p>
 
               <InputError :message="form.errors.email_footer" />
-
             </div>
           </section>
         </div>
 
         <div class="flex justify-end">
-          <Button type="submit"
-                  :disabled="form.processing">
-            Save changes
-          </Button>
+          <Button type="submit" :disabled="form.processing"> Save changes </Button>
         </div>
       </form>
     </SettingsLayout>

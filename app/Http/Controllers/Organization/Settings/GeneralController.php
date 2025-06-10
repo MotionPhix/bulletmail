@@ -11,8 +11,10 @@ use Inertia\Response;
 
 class GeneralController extends Controller
 {
-  public function edit(Organization $organization): Response
+  public function edit(): Response
   {
+    $organization = auth()->user()->currentTeam->organization;
+
     return Inertia::render('organization/settings/General', [
       'organization' => $organization,
       'availableSizes' => [

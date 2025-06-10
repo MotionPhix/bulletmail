@@ -8,27 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 trait HasTeamScope
 {
-  protected static function bootHasTeamScope(): void
+  protected static function bootHasTeamScope()
   {
-    static::creating(function ($model) {
-      if (!$model->team_id && auth()->check()) {
-        $model->team_id = auth()->user()->currentTeam->id;
+    static::addGlobalScope('team', function ($query) {
+      if (auth()->check()) {
+        $query->where('team_id', auth()->user()->current_team_id);
       }
     });
-  }
 
-  public function team(): BelongsTo
-  {
-    return $this->belongsTo(Team::class);
-  }
-
-  public function scopeForTeam(Builder $query, $team): Builder
-  {
-    return $query->where('team_id', is_numeric($team) ? $team : $team->id);
-  }
-
-  public function scopeForCurrentTeam(Builder $query): Builder
-  {
-    return $query->where('team_id', auth()->user()->currentTeam->id);
+    static::creating(function ($model) {
+      if (auth()->check() && !$model->team_id) {
+        $model->team_id = auth()->user()->current_team_id;
+      }
+    });
   }
 }

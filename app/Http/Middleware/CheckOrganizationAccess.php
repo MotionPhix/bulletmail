@@ -13,10 +13,20 @@ class CheckOrganizationAccess
     $user = $request->user();
     $organizationUuid = $request->route('organization');
 
-    // Get organization by UUID
-    $organization = is_string($organizationUuid)
-      ? Organization::where('uuid', $organizationUuid)->firstOrFail()
-      : $organizationUuid;
+    // First try to get organization from route parameter
+    if ($organizationUuid) {
+      $organization = is_string($organizationUuid)
+        ? Organization::where('uuid', $organizationUuid)->firstOrFail()
+        : $organizationUuid;
+    }
+    // If no route parameter, get from user's current team
+    else {
+      $userTeam = $user->currentTeam;
+      if (!$userTeam) {
+        abort(403, 'No team or organization selected.');
+      }
+      $organization = $userTeam->organization;
+    }
 
     if (!$organization) {
       return redirect()->route('dashboard');
