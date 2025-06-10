@@ -22,6 +22,9 @@ Route::prefix('subscribers')
     Route::put('/{subscriber:uuid}', 'update')
       ->name('subscribers.update');
 
+    Route::get('/e/{subscriber:uuid}', 'edit')
+      ->name('subscribers.edit');
+
     Route::delete('/{subscriber:uuid}', 'destroy')
       ->name('subscribers.destroy');
 
@@ -39,4 +42,10 @@ Route::prefix('subscribers')
 
     Route::get('/export', 'export')
       ->name('subscribers.export');
+
+    Route::post('/{subscriber:uuid}/lists', 'addToList')
+      ->name('subscribers.lists.add');
+
+    Route::delete('/{subscriber:uuid}/lists/{list:uuid}', 'removeFromList')
+      ->name('subscribers.lists.remove');
   });

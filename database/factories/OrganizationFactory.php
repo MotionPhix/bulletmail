@@ -73,6 +73,7 @@ class OrganizationFactory extends Factory
           'organization_id' => $organization->id,
           'owner_id' => $organization->owner_id,
           'name' => $organization->name . ' Team',
+          'is_default' => true,
           'personal_team' => true
         ]);
       }

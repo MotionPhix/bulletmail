@@ -54,7 +54,7 @@ class RegisteredUserController extends Controller
 
       Auth::login($user);
 
-      return redirect()->route('organizations.show', $organization);
+      return redirect()->route('dashboard');
     } catch (\Exception $e) {
       DB::rollBack();
       throw $e;
@@ -206,7 +206,8 @@ class RegisteredUserController extends Controller
       'name' => $input['organization_name'] . ' Team',
       'owner_id' => $user->id,
       'organization_id' => $organization->id,
-      'personal_team' => true
+      'personal_team' => true,
+      'is_default' => true,
     ]);
 
     $user->forceFill(['current_team_id' => $team->id])->save();

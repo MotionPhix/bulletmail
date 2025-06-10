@@ -241,13 +241,57 @@ class SubscriberService
 
     return [
       'total' => $subscribers->count(),
-      'active' => $subscribers->active()->count(),
-      'unsubscribed' => $subscribers->unsubscribed()->count(),
-      'bounced' => $subscribers->bounced()->count(),
+      'active' => $subscribers->where('status', 'subscribed')->count(),
+      'unsubscribed' => $subscribers->where('status', 'unsubscribed')->count(),
+      'bounced' => $subscribers->where('status', 'bounced')->count(),
       'engaged_30d' => $subscribers->engaged(30)->count(),
       'unengaged_30d' => $subscribers->unengaged(30)->count(),
       'status_distribution' => $this->getStatusDistribution($team),
       'growth_trend' => $this->getGrowthTrend($team),
+    ];
+  }
+
+  public function getSubscriberDetails(Subscriber $subscriber): array
+  {
+    $subscriber->load([
+      'mailingLists:id,name',
+      'events' => fn($query) => $query
+        ->with('campaign:id,name,subject')
+        ->latest()
+        ->limit(50)
+    ]);
+
+    return [
+      'uuid' => $subscriber->uuid,
+      'email' => $subscriber->email,
+      'first_name' => $subscriber->first_name,
+      'last_name' => $subscriber->last_name,
+      'status' => $subscriber->status,
+      'created_at' => $subscriber->created_at,
+      'subscribed_at' => $subscriber->subscribed_at,
+      'unsubscribed_at' => $subscriber->unsubscribed_at,
+      'last_emailed_at' => $subscriber->last_emailed_at,
+      'last_opened_at' => $subscriber->last_opened_at,
+      'last_clicked_at' => $subscriber->last_clicked_at,
+      'emails_received' => $subscriber->emails_received,
+      'emails_opened' => $subscriber->emails_opened,
+      'emails_clicked' => $subscriber->emails_clicked,
+      'engagement_score' => $subscriber->engagement_score,
+      'average_open_rate' => $subscriber->average_open_rate,
+      'average_click_rate' => $subscriber->average_click_rate,
+      'lists' => $subscriber->mailingLists->map(fn($list) => [
+        'id' => $list->id,
+        'name' => $list->name
+      ]),
+      'events' => $subscriber->events->map(fn($event) => [
+        'id' => $event->id,
+        'type' => $event->type,
+        'created_at' => $event->created_at,
+        'metadata' => array_merge($event->metadata ?? [], [
+          'campaign_name' => $event->campaign?->name,
+          'campaign_subject' => $event->campaign?->subject
+        ])
+      ])
     ];
   }
 

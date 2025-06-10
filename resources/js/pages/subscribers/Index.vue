@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ModalLink } from '@inertiaui/modal-vue';
-import { DownloadIcon, PlusIcon, UploadIcon } from 'lucide-vue-next';
+import { DownloadIcon, PlusIcon, UploadIcon, InfoIcon } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 import StatsCard from '@/components/StatsCard.vue';
 
@@ -318,7 +318,13 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
                 <TableCell>{{ subscriber.lists?.length || 0 }} lists</TableCell>
                 <TableCell>{{ new Date(subscriber.created_at).toLocaleDateString() }}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" :href="route('app.subscribers.show', subscriber.uuid)"> View</Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    :as="Link"
+                    :href="route('app.subscribers.show', subscriber.uuid)">
+                    <InfoIcon />
+                  </Button>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -353,7 +359,7 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
             :disabled="!link.url"
             variant="outline"
             size="sm"
-            @click="link.url && router.get(link.url)"
+            @click="link.url && router.get(link.url, {}, { preserveScroll: true, replace: true })"
             v-html="link.label"
           />
         </div>

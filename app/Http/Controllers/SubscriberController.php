@@ -25,6 +25,7 @@ class SubscriberController extends Controller
   public function index(Request $request)
   {
     $filters = $request->only(['search', 'status', 'list_id', 'segment_id', 'sort', 'direction']);
+
     $subscribers = $this->subscriberService->getSubscribers(
       $request->user()->currentTeam,
       $filters,
@@ -71,12 +72,20 @@ class SubscriberController extends Controller
 
   public function show(Subscriber $subscriber)
   {
-    $this->authorize('view', $subscriber);
-
     $details = $this->subscriberService->getSubscriberDetails($subscriber);
 
     return Inertia::render('subscribers/Show', [
-      'subscriber' => $details
+      'subscriber' => $details,
+      'available_lists' => MailingList::where('team_id', auth()->user()->current_team_id)
+        ->select('id', 'name')
+        ->get()
+    ]);
+  }
+
+  public function edit(Subscriber $subscriber)
+  {
+    return Inertia::render('subscribers/Edit', [
+      'subscriber' => $subscriber->only(['uuid', 'email', 'first_name', 'last_name', 'status', 'metadata']),
     ]);
   }
 
@@ -169,6 +178,24 @@ class SubscriberController extends Controller
       ),
       'subscribers-' . now()->format('Y-m-d') . '.' . $request->format
     );
+  }
+
+  public function addToList(Subscriber $subscriber, Request $request)
+  {
+    $request->validate([
+      'list_id' => ['required', 'exists:mailing_lists,id']
+    ]);
+
+    $list = MailingList::find($request->list_id);
+    $subscriber->addToList($list);
+
+    return back()->with('success', 'Subscriber added to list');
+  }
+
+  public function removeFromList(Subscriber $subscriber, MailingList $list)
+  {
+    $subscriber->removeFromList($list);
+    return back()->with('success', 'Subscriber removed from list');
   }
 
   public function unsubscribe(Request $request, string $uuid)

@@ -34,21 +34,12 @@ class AuthenticatedSessionController extends Controller
 
     $user = Auth::user();
 
-    // If user is an organization owner
-    if ($organization = $user->ownedOrganizations()->first()) {
-      // Set current team if not set
-      if (!$user->current_team_id) {
-        $team = $organization->teams()->first();
-        if ($team) {
-          $user->forceFill(['current_team_id' => $team->id])->save();
-        }
-      }
-      return redirect()->route('organizations.show', $organization);
-    }
+    if (!$user->current_team_id) {
+      $team = $user->teams()->where('is_default', true)->first();
 
-    // If user is a team member
-    if ($team = $user->currentTeam) {
-      return redirect()->route('teams.show', $team);
+      if ($team) {
+        $user->forceFill(['current_team_id' => $team->id])->save();
+      }
     }
 
     return redirect()->route('dashboard');
