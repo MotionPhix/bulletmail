@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Campaign;
 
+use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign;
 use App\Services\CampaignService;
@@ -19,13 +20,33 @@ class CampaignController extends Controller
 
   public function index(Request $request)
   {
+    $query = Campaign::query()
+      ->where('team_id', auth()->user()->current_team_id)
+      ->select(['id', 'uuid', 'name', 'subject', 'status', 'scheduled_at', 'created_at'])
+      ->with(['stats', 'user:id,name,email']);
+
+    if ($search = $request->input('search')) {
+      $query->where(function ($q) use ($search) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhere('subject', 'like', "%{$search}%");
+      });
+    }
+
+    if ($status = $request->input('status')) {
+      $query->where('status', $status);
+    }
+
+    $sort = $request->input('sort', 'name');
+    if (in_array($sort, ['name', 'status', 'scheduled_at'])) {
+      $query->orderBy($sort);
+    } else {
+      $query->orderBy('name');
+    }
+
     return Inertia::render('campaigns/Index', [
-      'campaigns' => Campaign::query()
-        ->where('team_id', auth()->user()->current_team_id)
-        ->select(['id', 'name', 'subject', 'status', 'scheduled_at', 'created_at'])
-        ->with('stats')
-        ->latest()
-        ->paginate(10)
+      'campaigns' => $query->latest()->paginate(10),
+      'filters' => $request->only(['search', 'status', 'sort']),
+      'statuses' => CampaignStatus::cases(),
     ]);
   }
 
