@@ -44,8 +44,8 @@ class CampaignController extends Controller
     }
 
     return Inertia::render('campaigns/Index', [
-      'campaigns' => $query->latest()->paginate(10),
-      'filters' => $request->only(['search', 'status', 'sort']),
+      'campaigns' => $query->latest()->paginate(10)->withQueryString(),
+      'filters' => $request->only(['search', 'status', 'sort', 'direction']),
       'statuses' => CampaignStatus::cases(),
     ]);
   }

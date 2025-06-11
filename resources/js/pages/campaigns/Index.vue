@@ -46,6 +46,7 @@ const props = defineProps<{
     search?: string;
     status?: string;
     sort?: string;
+    direction?: 'asc' | 'desc';
   };
   statuses: Array<string>;
 }>();
@@ -70,7 +71,17 @@ const breadcrumbs = computed(() => [
 const search = ref(props.filters.search || '');
 const status = ref(props.filters.status || '');
 const sort = ref(props.filters.sort || 'name');
+const direction = ref(props.filters.direction || 'desc');
 const loading = ref(false);
+
+const toggleSort = (field: string) => {
+  if (sort.value === field) {
+    direction.value = direction.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sort.value = field;
+    direction.value = 'asc';
+  }
+};
 
 const fetchCampaigns = debounce((query: any) => {
     router.visit(route('app.campaigns.index', query), {
