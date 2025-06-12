@@ -13,12 +13,12 @@ Route::controller(CampaignController::class)
     Route::get('/', 'index')->name('campaigns.index');
     Route::get('/create', 'create')->name('campaigns.create');
     Route::post('/', 'store')->name('campaigns.store');
-    Route::get('/{campaign:uuid}', 'show')->name('campaigns.show');
-    Route::get('/{campaign:uuid}/edit', 'edit')->name('campaigns.edit');
-    Route::put('/{campaign:uuid}', 'update')->name('campaigns.update');
-    Route::delete('/{campaign:uuid}', 'destroy')->name('campaigns.destroy');
-    Route::post('/{campaign:uuid}/send', 'send')->name('campaigns.send');
-    Route::post('/{campaign:uuid}/schedule', 'schedule')->name('campaigns.schedule');
+    Route::get('/s/{campaign:uuid}', 'show')->name('campaigns.show');
+    Route::get('/e/{campaign:uuid}', 'edit')->name('campaigns.edit');
+    Route::put('/u/{campaign:uuid}', 'update')->name('campaigns.update');
+    Route::delete('/d/{campaign:uuid}', 'destroy')->name('campaigns.destroy');
+    Route::post('/send/{campaign:uuid}', 'send')->name('campaigns.send');
+    Route::post('/schedule/{campaign:uuid}', 'schedule')->name('campaigns.schedule');
   });
 
 // Templates

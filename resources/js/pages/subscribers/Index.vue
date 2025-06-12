@@ -101,12 +101,8 @@ const applyFilters = () => {
 
 const breadcrumbs = computed(() => [
   {
-    title: page.props.auth.current_organization.name,
-    href: route('dashboard'),
-  },
-  {
     title: page.props.auth.current_team.name,
-    href: route('teams.show', page.props.auth.current_team.uuid),
+    href: route('dashboard'),
   },
   {
     title: 'Subscribers List',
@@ -287,7 +283,6 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
                     />
                   </div>
                 </TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Lists</TableHead>
@@ -306,8 +301,16 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
                     />
                   </div>
                 </TableCell>
-                <TableCell>{{ subscriber.email }}</TableCell>
-                <TableCell>{{ subscriber.first_name }} {{ subscriber.last_name }}</TableCell>
+
+                <TableCell class="grid">
+                  <strong>
+                    {{ subscriber.first_name }} {{ subscriber.last_name }}
+                  </strong>
+                  <span class="text-sm text-muted-foreground">
+                    {{ subscriber.email }}
+                  </span>
+                </TableCell>
+
                 <TableCell>
                   <Badge
                     class="capitalize"
@@ -315,8 +318,15 @@ const toggleSubscriber = (subscriberId: number, checked: boolean) => {
                     {{ subscriber.status }}
                   </Badge>
                 </TableCell>
-                <TableCell>{{ subscriber.lists?.length || 0 }} lists</TableCell>
-                <TableCell>{{ new Date(subscriber.created_at).toLocaleDateString() }}</TableCell>
+
+                <TableCell>
+                  {{ subscriber.lists?.length || 0 }} lists
+                </TableCell>
+
+                <TableCell>
+                  {{ new Date(subscriber.created_at).toLocaleDateString() }}
+                </TableCell>
+
                 <TableCell>
                   <Button
                     variant="ghost"

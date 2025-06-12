@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCampaignRequest;
 use App\Models\Campaign;
 use App\Services\CampaignService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -55,26 +56,26 @@ class CampaignController extends Controller
     $team = auth()->user()->currentTeam;
 
     return Inertia::render('campaigns/Create', [
-      'templates' => $team->emailTemplates()->select('id', 'name')->get(),
-      'lists' => $team->mailingLists()->select('id', 'name')->get()
+      'templates' => $team->templates()->select('id', 'uuid', 'name')->get(),
+      'lists' => $team->mailingLists()->select('id', 'uuid', 'name')->get()
     ]);
   }
 
-  public function store(Request $request)
+  public function store(StoreCampaignRequest $request)
   {
-    $validated = $request->validate([
-      'name' => 'required|string|max:255',
-      'subject' => 'required|string|max:255',
-      'template_id' => 'required|exists:email_templates,id',
-      'content' => 'required|string',
-      'list_ids' => 'required|array|min:1',
-      'scheduled_at' => 'nullable|date|after:now'
-    ]);
+    try {
+      $campaign = $this->campaignService->create($request->validated());
 
-    $campaign = $this->campaignService->create($validated);
+      return redirect()
+        ->route('app.campaigns.show', $campaign->uuid)
+        ->with('success', 'Campaign created successfully.');
+    } catch (\Exception $e) {
+      report($e);
 
-    return redirect()->route('campaigns.show', $campaign)
-      ->with('success', 'Campaign created successfully');
+      return back()->withErrors([
+        'error' => 'Could not create campaign. Please try again.'
+      ]);
+    }
   }
 
   public function show(Campaign $campaign)

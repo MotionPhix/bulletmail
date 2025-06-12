@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Team\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\Settings\InviteMemberRequest;
 use App\Http\Requests\Team\Settings\UpdateMemberRequest;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Models\{Team, User};
 use App\Notifications\TeamInvitation;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,11 @@ use Inertia\Response;
 
 class MembersController extends Controller
 {
+  use AuthorizesRequests;
+
+  /**
+   * Display the members settings page for the team.
+   */
   public function index(Team $team): Response
   {
     $this->authorize('viewMembers', $team);

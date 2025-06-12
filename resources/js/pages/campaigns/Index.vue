@@ -4,10 +4,11 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, ref, watch } from 'vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import {PencilIcon, SearchIcon} from 'lucide-vue-next';
+import { DownloadIcon, PencilIcon, PlusIcon, SearchIcon, UploadIcon } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { debounce } from 'lodash';
+import Heading from '@/components/Heading.vue';
 
 const props = defineProps<{
   campaigns: {
@@ -55,12 +56,8 @@ const page = usePage().props.auth
 
 const breadcrumbs = computed(() => [
   {
-    title: page.current_organization.name,
-    href: route('dashboard')
-  },
-  {
     title: page.current_team.name,
-    href: '#'
+    href: route('dashboard')
   },
   {
     title: 'Campaigns',
@@ -86,6 +83,7 @@ const toggleSort = (field: string) => {
 const fetchCampaigns = debounce((query: any) => {
     router.visit(route('app.campaigns.index', query), {
       preserveScroll: true,
+      preserveState: true,
       replace: true,
       onFinish: () => (loading.value = false),
     });
@@ -109,9 +107,25 @@ watch([search, status, sort], ([newSearch, newStatus, newSort]) => {
 
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="p-6 max-w-4xl">
+      <div class="sm:flex sm:items-start sm:justify-between mb-6">
+        <Heading
+          title="Campaign List"
+          description="Manage your campaign list"
+        />
+
+        <div>
+          <Button
+            :as="Link"
+            :href="route('app.campaigns.create')">
+            <PlusIcon />
+            Add
+          </Button>
+        </div>
+      </div>
+
       <!-- Filters -->
       <div class="flex items-center gap-4 mb-6">
-        <div class="flex items-center gap-2 flex-1 relative">
+        <div class="flex items-center gap-2 w-full max-w-sm relative">
           <Input
             v-model="search"
             placeholder="Search campaigns..."
@@ -121,6 +135,8 @@ watch([search, status, sort], ([newSearch, newStatus, newSort]) => {
 
           <SearchIcon class="h-4 w-4 text-muted-foreground absolute right-3" />
         </div>
+
+        <div class="flex-1"></div>
 
         <Select v-model="status">
           <SelectTrigger>
@@ -159,19 +175,23 @@ watch([search, status, sort], ([newSearch, newStatus, newSort]) => {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Subject</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Scheduled At</TableHead>
-            <TableHead></TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
 
         <TableBody>
           <TableRow v-for="campaign in campaigns.data" :key="campaign.id">
-            <TableCell>{{ campaign.name }}</TableCell>
-            <TableCell>{{ campaign.subject }}</TableCell>
+            <TableCell class="grid">
+              <strong>{{ campaign.name }}</strong>
+              <span class="text-sm text-muted-foreground truncate max-w-xs">{{ campaign.subject }}</span>
+            </TableCell>
+
             <TableCell class="capitalize">{{ campaign.status }}</TableCell>
+
             <TableCell>{{ campaign.scheduled_at || 'Not Scheduled' }}</TableCell>
+
             <TableCell>
               <Button
                 size="icon"

@@ -98,12 +98,12 @@ const page = usePage().props
 
 const breadcrumbs = computed(() => [
   {
-    title: page.auth.current_organization.name,
+    title: page.auth.current_team.name,
     href: route('dashboard'),
   },
   {
-    title: page.auth.current_team.name,
-    href: route('teams.show', page.auth.current_team.uuid),
+    title: 'Subscribers List',
+    href: route('app.subscribers.index'),
   },
   {
     title: 'Subscribers Details',
