@@ -56,7 +56,7 @@ class Campaign extends Model
 
   public function template(): BelongsTo
   {
-    return $this->belongsTo(EmailTemplate::class);
+    return $this->belongsTo(EmailTemplate::class, 'template_id');
   }
 
   public function stats(): HasOne

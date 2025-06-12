@@ -45,7 +45,7 @@ class EmailTemplate extends Model
 
   public function campaigns(): HasMany
   {
-    return $this->hasMany(Campaign::class);
+    return $this->hasMany(Campaign::class, 'template_id');
   }
 
   public function duplicate(): self

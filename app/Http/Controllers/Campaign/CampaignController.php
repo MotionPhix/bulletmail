@@ -29,7 +29,8 @@ class CampaignController extends Controller
     if ($search = $request->input('search')) {
       $query->where(function ($q) use ($search) {
         $q->where('name', 'like', "%{$search}%")
-          ->orWhere('subject', 'like', "%{$search}%");
+          ->orWhere('subject', 'like', "%{$search}%")
+          ->orWhere('status', 'like', "%{$search}%");
       });
     }
 
@@ -37,11 +38,13 @@ class CampaignController extends Controller
       $query->where('status', $status);
     }
 
-    $sort = $request->input('sort', 'name');
-    if (in_array($sort, ['name', 'status', 'scheduled_at'])) {
-      $query->orderBy($sort);
-    } else {
-      $query->orderBy('name');
+    $sortField = $request->input('sort', 'name');
+    $sortDirection = $request->input('direction', 'desc');
+
+    $allowedSortFields = ['name', 'status', 'scheduled_at', 'created_at'];
+
+    if (in_array($sortField, $allowedSortFields)) {
+      $query->orderBy($sortField, $sortDirection);
     }
 
     return Inertia::render('campaigns/Index', [

@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, ref, watch } from 'vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { DownloadIcon, PencilIcon, PlusIcon, SearchIcon, UploadIcon } from 'lucide-vue-next';
+import { ArrowUpIcon, PencilIcon, PlusIcon, SearchIcon } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { debounce } from 'lodash';
@@ -81,21 +81,22 @@ const toggleSort = (field: string) => {
 };
 
 const fetchCampaigns = debounce((query: any) => {
-    router.visit(route('app.campaigns.index', query), {
-      preserveScroll: true,
-      preserveState: true,
-      replace: true,
-      onFinish: () => (loading.value = false),
-    });
-  }, 300);
+  router.visit(route('app.campaigns.index', query), {
+    preserveScroll: true,
+    preserveState: true,
+    replace: true,
+    onFinish: () => (loading.value = false),
+  });
+}, 300);
 
-watch([search, status, sort], ([newSearch, newStatus, newSort]) => {
+watch([search, status, sort, direction], ([newSearch, newStatus, newSort, newDirection]) => {
   loading.value = true;
 
   const query = {
     search: newSearch || undefined,
     status: newStatus || undefined,
     sort: newSort || undefined,
+    direction: newDirection || undefined,
   };
 
   fetchCampaigns(query);
@@ -174,9 +175,45 @@ watch([search, status, sort], ([newSearch, newStatus, newSort]) => {
       <Table v-if="campaigns.data.length > 0 && !loading">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Scheduled At</TableHead>
+            <TableHead
+              @click="toggleSort('name')"
+              class="cursor-pointer">
+              <div class="flex items-center gap-x-1">
+                <span>Name</span>
+                <ArrowUpIcon
+                  v-if="sort === 'name'"
+                  class="h-4 w-4"
+                  :class="direction === 'desc' ? 'rotate-180' : ''"
+                />
+              </div>
+            </TableHead>
+
+            <TableHead
+              @click="toggleSort('status')"
+              class="cursor-pointer">
+              <div class="flex items-center gap-x-1">
+                <span>Status</span>
+                <ArrowUpIcon
+                  v-if="sort === 'status'"
+                  class="h-4 w-4"
+                  :class="direction === 'desc' ? 'rotate-180' : ''"
+                />
+              </div>
+            </TableHead>
+
+            <TableHead
+              @click="toggleSort('scheduled_at')"
+              class="cursor-pointer">
+              <div class="flex items-center gap-x-1">
+                <span>Scheduled At</span>
+                <ArrowUpIcon
+                  v-if="sort === 'scheduled_at'"
+                  class="h-4 w-4"
+                  :class="direction === 'desc' ? 'rotate-180' : ''"
+                />
+              </div>
+            </TableHead>
+
             <TableHead />
           </TableRow>
         </TableHeader>

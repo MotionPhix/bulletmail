@@ -38,9 +38,9 @@ const form = useForm({
     html: ''
   },
   list_ids: [] as number[],
-  from_name: page.current_team.name,
-  from_email: page.current_organization.from_email ?? '',
-  reply_to: page.current_organization.reply_to_email ?? '',
+  from_name: page.current_organization.default_from_name,
+  from_email: page.current_organization.default_from_email ?? '',
+  reply_to: page.current_organization.default_reply_to ?? '',
   scheduled_at: null as string | null,
 });
 
@@ -77,14 +77,14 @@ const appearance = {
 const editorLoaded = () => {
   // Load template content if template_id exists
   if (form.template_id) {
-    emailEditor.value.editor.loadDesign(form.content);
+    emailEditor.value?.editor.loadDesign(form.content);
   }
 };
 
 const saveDesign = async () => {
   try {
-    const design = await emailEditor.value.editor.saveDesign();
-    const html = await emailEditor.value.editor.exportHtml();
+    const design = await emailEditor.value?.editor.saveDesign();
+    const html = await emailEditor.value?.editor.exportHtml();
     form.content = {
       design: design,
       html: html.html
@@ -95,7 +95,7 @@ const saveDesign = async () => {
 };
 
 const exportHtml = () => {
-  emailEditor.value.editor.exportHtml(
+  emailEditor.value?.editor.exportHtml(
     (data) => {
       console.log('exportHtml', data);
     }
@@ -149,7 +149,7 @@ const submit = () => {
   <Head title="Create Campaign" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="container mx-auto p-6">
+    <div class="max-w-5xl p-6">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold">Create Campaign</h1>
@@ -287,23 +287,22 @@ const submit = () => {
 
               <div class="border rounded-2xl">
                 <div class="container">
-                    <div id="bar" class="flex gap-x-2">
-                      <Button size="sm" type="button" :click="saveDesign">Save</Button>
-                      <Button variant="outline" size="sm" type="button" :click="exportHtml">Export HTML</Button>
-                    </div>
-
-                    <EmailEditor
-                      ref="emailEditor"
-                      v-on:load="editorLoaded"
-                      :appearance="appearance"
-                      :project-id="unlayerProjectId"
-                      :tools="tools"
-                      minHeight="600px"
-                      displayMode="email"
-                      @editor-loaded="editorLoaded"
-                      @design-updated="saveDesign"
-                    />
+                  <div id="bar" class="flex gap-x-2">
+                    <Button size="sm" type="button" :click="saveDesign">Save</Button>
+                    <Button variant="outline" size="sm" type="button" :click="exportHtml">Export HTML</Button>
                   </div>
+
+                  <EmailEditor
+                    ref="emailEditor"
+                    v-on:load="editorLoaded"
+                    :appearance="appearance"
+                    :project-id="unlayerProjectId"
+                    :tools="tools"
+                    minHeight="600px"
+                    displayMode="email"
+                    v-on:update="saveDesign"
+                  />
+                </div>
               </div>
 
               <InputError :message="form.errors.content" class="mt-2" />

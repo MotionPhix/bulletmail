@@ -27,8 +27,9 @@ Route::controller(TemplateController::class)
   ->group(function () {
     Route::get('/', 'index')->name('templates.index');
     Route::get('/create', 'create')->name('templates.create');
+    Route::get('/s/{template:uuid}', 'show')->name('templates.show');
     Route::post('/', 'store')->name('templates.store');
-    Route::get('/{template:uuid}/edit', 'edit')->name('templates.edit');
-    Route::put('/{template:uuid}', 'update')->name('templates.update');
-    Route::delete('/{template:uuid}', 'destroy')->name('templates.destroy');
+    Route::get('/e/{template:uuid}', 'edit')->name('templates.edit');
+    Route::put('/u/{template:uuid}', 'update')->name('templates.update');
+    Route::delete('/d/{template:uuid}', 'destroy')->name('templates.destroy');
   });
