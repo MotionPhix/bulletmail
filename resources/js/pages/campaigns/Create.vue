@@ -85,15 +85,6 @@ const editorLoaded = () => {
     loadTemplate(form.template_id);
   }
 
-  emailEditor.value?.editor.setFeatures({
-    undo: true,
-    redo: true,
-    save: true,
-    export: true,
-    import: true,
-    preview: true,
-  });
-
   // Set merge tags
   emailEditor.value?.editor.setMergeTags({
     first_name: 'First Name',
@@ -102,13 +93,13 @@ const editorLoaded = () => {
   });
 
   // Set custom CSS
-  emailEditor.value?.editor.setCustomCSS({
+  /*emailEditor.value?.editor.setCustomCSS({
     '.unlayer-editor': {
       'font-family': 'Geist Mono, monospace',
       'font-size': '14px',
       'color': '#333',
     },
-  });
+  });*/
 };
 
 const saveDesign = async () => {
