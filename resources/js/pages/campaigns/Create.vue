@@ -15,7 +15,6 @@ import { useDark, useStorage } from '@vueuse/core';
 import InputError from '@/components/InputError.vue';
 import { EmailEditor } from 'vue-email-editor';
 import axios from 'axios';
-import { object } from 'zod';
 
 const props = defineProps<{
   templates: Array<{ id: number; uuid: string; name: string }>;
@@ -75,11 +74,41 @@ const appearance = {
   }
 }
 
+const breadcrumbs = [
+  { title: page.current_team.name, href: route('dashboard') },
+  { title: 'Campaigns', href: route('app.campaigns.index') },
+  { title: 'Create Campaign', href: '#' },
+];
+
 const editorLoaded = () => {
-  // Load template content if template_id exists
   if (form.template_id) {
-    emailEditor.value?.editor.loadDesign(form.content);
+    loadTemplate(form.template_id);
   }
+
+  emailEditor.value?.editor.setFeatures({
+    undo: true,
+    redo: true,
+    save: true,
+    export: true,
+    import: true,
+    preview: true,
+  });
+
+  // Set merge tags
+  emailEditor.value?.editor.setMergeTags({
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    email: 'Email Address',
+  });
+
+  // Set custom CSS
+  emailEditor.value?.editor.setCustomCSS({
+    '.unlayer-editor': {
+      'font-family': 'Geist Mono, monospace',
+      'font-size': '14px',
+      'color': '#333',
+    },
+  });
 };
 
 const saveDesign = async () => {
@@ -96,13 +125,27 @@ const saveDesign = async () => {
   }
 };
 
-const exportHtml = () => {
-  emailEditor.value?.editor.exportHtml(
-    (data) => {
-      console.log('exportHtml', data);
+const loadTemplate = async (templateId: number) => {
+  try {
+    const response = await axios.get(route('api.templates.show', templateId));
+    const template = response.data;
+
+    if (template && template.design) {
+      const design = typeof template.design === 'string'
+        ? JSON.parse(template.design)
+        : template.design;
+
+      emailEditor.value?.editor.loadDesign(design);
+
+      form.content = {
+        design: design,
+        html: template.content
+      };
     }
-  )
-}
+  } catch (error) {
+    console.error('Error loading template:', error);
+  }
+};
 
 const recipientsCount = computed(() => {
   return form.list_ids.length;
@@ -113,32 +156,11 @@ const isValid = computed(() => {
   return requiredFields.every(field => form[field]) && form.list_ids.length > 0;
 });
 
-watch(() => form.template_id, async (newId) => {
-  if (newId) {
-    axios.get(route('api.templates.show', newId))
-      .then(resp => {
-        console.log('Template loaded:', resp.data);
-
-        if (resp.data) {
-          emailEditor.value?.editor.loadDesign(resp.data.design);
-
-          form.content = {
-            design: JSON.stringify(resp.data.design),
-            html: resp.data.content
-          };
-        }
-      })
-      .catch(error => {
-        console.error('Error loading template:', error);
-      });
+watch(() => form.template_id, (newId) => {
+  if (newId && emailEditor.value?.editor) {
+    loadTemplate(newId);
   }
 });
-
-const breadcrumbs = [
-  { title: page.current_team.name, href: route('dashboard') },
-  { title: 'Campaigns', href: route('app.campaigns.index') },
-  { title: 'Create Campaign', href: '#' },
-];
 
 const submit = () => {
   form.post(route('app.campaigns.store'), {
@@ -148,55 +170,7 @@ const submit = () => {
 
 onMounted(() => {
   if (emailEditor.value?.editor) {
-    emailEditor.value.editor.addEventListener('design:updated', function () {
-
-      emailEditor.value?.editor.saveDesign((design) => {
-        console.log('Editor loaded', design);
-        console.log(JSON.parse('Parsed Object', design));
-        console.log(JSON.stringify('Stringified Object', design));
-
-        emailEditor.value?.editor.setMergeTags({
-          first_name: 'First Name',
-          last_name: 'Last Name',
-          email: 'Email Address',
-        });
-
-        emailEditor.value?.editor.setCustomCSS({
-          '.unlayer-editor': {
-            'font-family': 'Geist Mono, monospace',
-            'font-size': '14px',
-            'color': '#333',
-          },
-        });
-
-        // Set preheader text
-        emailEditor.value?.editor.setBodyValues({
-          preheaderText: form.preview_text,
-        });
-
-        // Set default values for from_name and from_email
-        emailEditor.value?.editor.setBodyValues({
-          fromName: form.from_name,
-          fromEmail: form.from_email,
-        });
-
-        // Set reply-to email if provided
-        if (form.reply_to) {
-          emailEditor.value?.editor.setBodyValues({
-            replyTo: form.reply_to,
-          });
-        }
-
-        // Load design if available
-        if (design) {
-          emailEditor.value?.editor.loadDesign(design);
-        } else if (form.content.design && Object.keys(form.content.design).length > 0) {
-          emailEditor.value?.editor.loadDesign(form.content.design);
-        }
-      });
-
-      saveDesign();
-    });
+    emailEditor.value.editor.addEventListener('design:updated', saveDesign);
   }
 });
 </script>
