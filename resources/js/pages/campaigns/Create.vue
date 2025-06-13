@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Mail, Calendar, Users } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useDark, useStorage } from '@vueuse/core';
 import InputError from '@/components/InputError.vue';
 import { EmailEditor } from 'vue-email-editor';
 import axios from 'axios';
+import { object } from 'zod';
 
 const props = defineProps<{
   templates: Array<{ id: number; uuid: string; name: string }>;
@@ -74,7 +75,50 @@ const appearance = {
   }
 }
 
-const editorLoaded = () => {
+const editorLoaded = (design?: object) => {
+  console.log('Editor loaded', design);
+  console.log(JSON.parse('Parsed Object', design));
+  console.log(JSON.stringify('Stringified Object', design));
+
+  emailEditor.value?.editor.setMergeTags({
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    email: 'Email Address',
+  });
+
+  emailEditor.value?.editor.setCustomCSS({
+    '.unlayer-editor': {
+      'font-family': 'Geist Mono, monospace',
+      'font-size': '14px',
+      'color': '#333',
+    },
+  });
+
+  // Set preheader text
+  emailEditor.value?.editor.setBodyValues({
+    preheaderText: form.preview_text,
+  });
+
+  // Set default values for from_name and from_email
+  emailEditor.value?.editor.setBodyValues({
+    fromName: form.from_name,
+    fromEmail: form.from_email,
+  });
+
+  // Set reply-to email if provided
+  if (form.reply_to) {
+    emailEditor.value?.editor.setBodyValues({
+      replyTo: form.reply_to,
+    });
+  }
+
+  // Load design if available
+  if (design) {
+    emailEditor.value?.editor.loadDesign(design);
+  } else if (form.content.design && Object.keys(form.content.design).length > 0) {
+    emailEditor.value?.editor.loadDesign(form.content.design);
+  }
+
   // Load template content if template_id exists
   if (form.template_id) {
     emailEditor.value?.editor.loadDesign(form.content);
@@ -83,12 +127,13 @@ const editorLoaded = () => {
 
 const saveDesign = async () => {
   try {
-    const design = await emailEditor.value?.editor.saveDesign();
-    const html = await emailEditor.value?.editor.exportHtml();
-    form.content = {
-      design: design,
-      html: html.html
-    };
+    emailEditor.value?.editor.saveDesign(design => {
+      form.content.design = design;
+    });
+
+    emailEditor.value?.editor.exportHtml(data => {
+      form.content.html = data.html;
+    });
   } catch (error) {
     console.error('Error saving design:', error);
   }
@@ -118,7 +163,7 @@ watch(() => form.template_id, async (newId) => {
         console.log('Template loaded:', resp.data);
 
         if (resp.data) {
-          emailEditor.value.loadDesign(resp.data.design);
+          editorLoaded();
 
           form.content = {
             design: resp.data.design,
@@ -143,6 +188,14 @@ const submit = () => {
     preserveScroll: true,
   });
 };
+
+onMounted(() => {
+  if (emailEditor.value?.editor) {
+    emailEditor.value.editor.addEventListener('design:updated', function () {
+      saveDesign();
+    });
+  }
+});
 </script>
 
 <template>
@@ -287,11 +340,6 @@ const submit = () => {
 
               <div class="border rounded-2xl">
                 <div class="container">
-                  <div id="bar" class="flex gap-x-2">
-                    <Button size="sm" type="button" :click="saveDesign">Save</Button>
-                    <Button variant="outline" size="sm" type="button" :click="exportHtml">Export HTML</Button>
-                  </div>
-
                   <EmailEditor
                     ref="emailEditor"
                     v-on:load="editorLoaded"
@@ -398,19 +446,5 @@ const submit = () => {
 
 #editor {
   width: 20px !important;
-}
-
-#bar {
-  flex: 1;
-  background-color: #40B883;
-  padding: 10px;
-  display: flex;
-  max-height: 50px;
-}
-
-#bar h1 {
-  flex: 1;
-  font-size: 16px;
-  text-align: left;
 }
 </style>

@@ -18,6 +18,8 @@ import {
   UserPlus,
 } from 'lucide-vue-next';
 import { Link } from '@inertiajs/vue3';
+import Heading from '@/components/Heading.vue';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   organization: {
@@ -124,21 +126,25 @@ const engagementRatesData = computed(() => {
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="space-y-6 p-6 max-w-4xl">
       <!-- Team Header with Actions -->
-      <div class="flex items-center justify-between">
+      <div class="flex items-start justify-between">
         <div>
-          <h1 class="text-2xl font-semibold">{{ team.name }}</h1>
-          <p class="text-muted-foreground">Team Dashboard</p>
+          <Heading
+            :title="team.name"
+            description="Team Dashboard"
+          />
         </div>
+
         <div class="flex items-center gap-4">
-          <Link
+          <Button
+            :as="Link"
+            size="sm"
             v-for="action in teamActions"
             :key="action.label"
             :href="action.href"
-            class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+            class="inline-flex items-center gap-2">
             <component :is="action.icon" class="size-4" />
             {{ action.label }}
-          </Link>
+          </Button>
         </div>
       </div>
 

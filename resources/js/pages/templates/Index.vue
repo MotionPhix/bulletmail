@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { ref, watch } from 'vue';
 import { debounce } from 'lodash';
@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PencilIcon, TrashIcon } from 'lucide-vue-next';
+import Heading from '@/components/Heading.vue';
 
 const props = defineProps<{
   templates: {
@@ -32,6 +33,10 @@ const props = defineProps<{
 }>();
 
 const search = ref(props.filters.search || '');
+const breadcrumbs = [
+  { title: usePage().props.auth.current_team.name, href: route('dashboard') },
+  { title: 'Templates', href: '#' },
+];
 
 const fetchTemplates = debounce((query: any) => {
   router.visit(route('templates.index', query), {
@@ -48,11 +53,11 @@ watch(search, (newSearch) => {
 <template>
   <Head title="Templates" />
 
-  <AppLayout>
+  <AppLayout :breadcrumbs="breadcrumbs">
     <div class="p-6 max-w-4xl">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold">Templates</h1>
-        <Button :as="Link" :href="route('app.templates.create')">Create Template</Button>
+      <div class="flex items-start justify-between mb-6">
+        <Heading title="Templates" description="Manage your templates" />
+        <Button :as="Link" :href="route('app.templates.create')">New</Button>
       </div>
 
       <div class="mb-6">
@@ -86,11 +91,16 @@ watch(search, (newSearch) => {
 
             <TableCell>
               <div class="flex items-center gap-x-2">
-                <Button size="icon" :as="Link" :href="route('app.templates.edit', template.uuid)">
+                <Button
+                  class="text-danger-foreground hover:bg-danger/10 focus:bg-danger/10"
+                  variant="link" size="icon" :as="Link"
+                  :href="route('app.templates.edit', template.uuid)">
                   <PencilIcon />
                 </Button>
 
-                <Button :as="Link" size="icon" variant="destructive" :href="route('app.templates.destroy', template.uuid)">
+                <Button
+                  :as="Link" size="icon" variant="link"
+                  :href="route('app.templates.destroy', template.uuid)">
                   <TrashIcon />
                 </Button>
               </div>

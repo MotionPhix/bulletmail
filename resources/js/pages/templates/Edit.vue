@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmailEditor } from 'vue-email-editor';
-import { useDark } from '@vueuse/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { onMounted, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -32,7 +31,7 @@ const props = defineProps<{
 }>();
 
 const unlayerEmailEditor = ref();
-const isDarkMode = useDark();
+
 const unlayerProjectId = parseInt(import.meta.env.VITE_UNLAYER_PROJECT_ID);
 
 const form = useForm({
@@ -45,32 +44,32 @@ const form = useForm({
   type: props.template.type,
   design: props.template.design,
   variables: props.template.variables,
-  tags: props.template.tags || []
+  tags: props.template.tags || [],
 });
 
 const types = [
   { value: 'drag-drop', label: 'Drag & Drop' },
-  { value: 'html', label: 'HTML' }
+  { value: 'html', label: 'HTML' },
 ];
 
 // Unlayer configuration
 const appearance = {
-  theme: isDarkMode.value ? 'dark' : 'light',
+  theme: 'dark',
   panels: {
     tools: {
-      dock: 'left'
-    }
-  }
+      dock: 'left',
+    },
+  },
 };
 
 const tools = {
   heading: {
     properties: {
       text: {
-        value: 'Email Template'
-      }
-    }
-  }
+        value: 'Email Template',
+      },
+    },
+  },
 };
 
 const editorLoaded = () => {
@@ -81,12 +80,17 @@ const editorLoaded = () => {
 
 const saveDesign = () => {
   try {
-    unlayerEmailEditor.value.editor.saveDesign(design => {
+    unlayerEmailEditor.value.editor.saveDesign((design) => {
       form.design = design;
     });
 
-    unlayerEmailEditor.value.editor.exportHtml(data => {
+    unlayerEmailEditor.value.editor.exportHtml((data) => {
       form.content = data.html;
+    });
+
+    // Set the preheader text in the email editor
+    unlayerEmailEditor.value.editor.setBodyValues({
+      preheaderText: form.preview_text,
     });
   } catch (error) {
     console.error('Error saving design:', error);
@@ -95,29 +99,21 @@ const saveDesign = () => {
 
 const submit = async () => {
   form.put(route('app.templates.update', props.template.uuid), {
-    preserveScroll: true
+    preserveScroll: true,
   });
 };
 
 const breadcrumbs = [
   { title: usePage().props.auth.current_team.name, href: route('dashboard') },
   { title: 'Templates', href: route('app.templates.index') },
-  { title: 'Edit Template', href: '#' }
+  { title: 'Edit Template', href: '#' },
 ];
 
 onMounted(() => {
   if (unlayerEmailEditor.value?.editor) {
     unlayerEmailEditor.value.editor.addEventListener('design:updated', function () {
-      unlayerEmailEditor.value.editor.setBodyValues({
-        fontFamily: {
-          label: 'Helvetica',
-          value: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-        },
-        preheaderText: form.preview_text
-      })
-
       saveDesign();
-    })
+    });
   }
 });
 </script>
@@ -127,26 +123,18 @@ onMounted(() => {
 
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="max-w-5xl p-6">
-      <div class="flex items-center justify-between mb-6">
+      <div class="mb-6 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-semibold">Edit Template</h1>
-          <p class="text-sm text-muted-foreground">
-            Used in {{ template.campaigns_count }} campaign(s)
-          </p>
+          <p class="text-muted-foreground text-sm">Used in {{ template.campaigns_count }} campaign(s)</p>
         </div>
 
         <div class="flex gap-3">
-          <Button
-            :as="Link"
-            variant="ghost"
-            size="icon"
-            :href="route('app.templates.index')">
+          <Button :as="Link" variant="ghost" size="icon" :href="route('app.templates.index')">
             <ArrowLeftIcon />
           </Button>
 
-          <Button @click="submit">
-            Save Changes
-          </Button>
+          <Button @click="submit"> Save Changes </Button>
         </div>
       </div>
 
@@ -176,20 +164,14 @@ onMounted(() => {
 
             <div class="space-y-2">
               <Label>Description</Label>
-              <Textarea
-                v-model="form.description"
-                placeholder="Brief description of this template's purpose"
-              />
+              <Textarea v-model="form.description" placeholder="Brief description of this template's purpose" />
 
               <InputError :message="form.errors.description" class="mt-1" />
             </div>
 
             <div class="space-y-2">
               <Label>Preview Text</Label>
-              <Input
-                v-model="form.preview_text"
-                placeholder="A brief preview that appears in email clients"
-              />
+              <Input v-model="form.preview_text" placeholder="A brief preview that appears in email clients" />
 
               <InputError :message="form.errors.preview_text" class="mt-1" />
             </div>
@@ -203,10 +185,7 @@ onMounted(() => {
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem
-                      v-for="category in categories"
-                      :key="category.value"
-                      :value="category.value">
+                    <SelectItem v-for="category in categories" :key="category.value" :value="category.value">
                       {{ category.label }}
                     </SelectItem>
                   </SelectContent>
@@ -223,10 +202,7 @@ onMounted(() => {
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem
-                      v-for="type in types"
-                      :key="type.value"
-                      :value="type.value">
+                    <SelectItem v-for="type in types" :key="type.value" :value="type.value">
                       {{ type.label }}
                     </SelectItem>
                   </SelectContent>
@@ -243,7 +219,7 @@ onMounted(() => {
           </CardHeader>
 
           <CardContent>
-            <div class="border rounded-lg overflow-hidden">
+            <div class="overflow-hidden rounded-lg border">
               <div class="container">
                 <EmailEditor
                   ref="unlayerEmailEditor"
@@ -297,7 +273,7 @@ a.blockbuilder-branding {
 
 #bar {
   flex: 1;
-  background-color: #40B883;
+  background-color: #40b883;
   padding: 10px;
   display: flex;
   max-height: 50px;
