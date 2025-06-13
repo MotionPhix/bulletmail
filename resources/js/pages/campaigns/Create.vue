@@ -75,50 +75,7 @@ const appearance = {
   }
 }
 
-const editorLoaded = (design?: object) => {
-  console.log('Editor loaded', design);
-  console.log(JSON.parse('Parsed Object', design));
-  console.log(JSON.stringify('Stringified Object', design));
-
-  emailEditor.value?.editor.setMergeTags({
-    first_name: 'First Name',
-    last_name: 'Last Name',
-    email: 'Email Address',
-  });
-
-  emailEditor.value?.editor.setCustomCSS({
-    '.unlayer-editor': {
-      'font-family': 'Geist Mono, monospace',
-      'font-size': '14px',
-      'color': '#333',
-    },
-  });
-
-  // Set preheader text
-  emailEditor.value?.editor.setBodyValues({
-    preheaderText: form.preview_text,
-  });
-
-  // Set default values for from_name and from_email
-  emailEditor.value?.editor.setBodyValues({
-    fromName: form.from_name,
-    fromEmail: form.from_email,
-  });
-
-  // Set reply-to email if provided
-  if (form.reply_to) {
-    emailEditor.value?.editor.setBodyValues({
-      replyTo: form.reply_to,
-    });
-  }
-
-  // Load design if available
-  if (design) {
-    emailEditor.value?.editor.loadDesign(design);
-  } else if (form.content.design && Object.keys(form.content.design).length > 0) {
-    emailEditor.value?.editor.loadDesign(form.content.design);
-  }
-
+const editorLoaded = () => {
   // Load template content if template_id exists
   if (form.template_id) {
     emailEditor.value?.editor.loadDesign(form.content);
@@ -163,10 +120,10 @@ watch(() => form.template_id, async (newId) => {
         console.log('Template loaded:', resp.data);
 
         if (resp.data) {
-          editorLoaded();
+          emailEditor.value?.editor.loadDesign(resp.data.design);
 
           form.content = {
-            design: resp.data.design,
+            design: JSON.stringify(resp.data.design),
             html: resp.data.content
           };
         }
@@ -192,6 +149,52 @@ const submit = () => {
 onMounted(() => {
   if (emailEditor.value?.editor) {
     emailEditor.value.editor.addEventListener('design:updated', function () {
+
+      emailEditor.value?.editor.saveDesign((design) => {
+        console.log('Editor loaded', design);
+        console.log(JSON.parse('Parsed Object', design));
+        console.log(JSON.stringify('Stringified Object', design));
+
+        emailEditor.value?.editor.setMergeTags({
+          first_name: 'First Name',
+          last_name: 'Last Name',
+          email: 'Email Address',
+        });
+
+        emailEditor.value?.editor.setCustomCSS({
+          '.unlayer-editor': {
+            'font-family': 'Geist Mono, monospace',
+            'font-size': '14px',
+            'color': '#333',
+          },
+        });
+
+        // Set preheader text
+        emailEditor.value?.editor.setBodyValues({
+          preheaderText: form.preview_text,
+        });
+
+        // Set default values for from_name and from_email
+        emailEditor.value?.editor.setBodyValues({
+          fromName: form.from_name,
+          fromEmail: form.from_email,
+        });
+
+        // Set reply-to email if provided
+        if (form.reply_to) {
+          emailEditor.value?.editor.setBodyValues({
+            replyTo: form.reply_to,
+          });
+        }
+
+        // Load design if available
+        if (design) {
+          emailEditor.value?.editor.loadDesign(design);
+        } else if (form.content.design && Object.keys(form.content.design).length > 0) {
+          emailEditor.value?.editor.loadDesign(form.content.design);
+        }
+      });
+
       saveDesign();
     });
   }
