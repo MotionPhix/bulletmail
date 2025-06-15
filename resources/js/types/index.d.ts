@@ -153,4 +153,36 @@ export interface Subscription {
   plan?: Plan;
 }
 
+export interface Campaign {
+  id: number;
+  uuid: string;
+  name: string;
+  description?: string;
+  subject: string;
+  preview_text?: string;
+  content: string;
+  design?: any;
+  from_name: string;
+  from_email: string;
+  reply_to?: string;
+  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+  scheduled_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  total_recipients: number;
+  mailing_lists?: MailingList[];
+  stats?: {
+    recipients_count: number;
+    delivered_count: number;
+    opened_count: number;
+    clicked_count: number;
+    bounced_count: number;
+    complained_count: number;
+    unsubscribed_count: number;
+  };
+  template?: EmailTemplate;
+  created_at: string;
+  updated_at: string;
+}
+
 export type BreadcrumbItemType = BreadcrumbItem;

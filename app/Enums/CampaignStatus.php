@@ -11,6 +11,9 @@ enum CampaignStatus: string
   case PAUSED = 'paused';
   case FAILED = 'failed';
   case CANCELLED = 'cancelled';
+  case ARCHIVED = 'archived';
+  case DELETED = 'deleted';
+  case COMPLETED = 'completed';
 
   public function getDescription(): string
   {
@@ -21,7 +24,10 @@ enum CampaignStatus: string
       self::SENT => 'Campaign has been sent',
       self::PAUSED => 'Campaign is paused',
       self::FAILED => 'Campaign failed to send',
-      self::CANCELLED => 'Campaign was cancelled'
+      self::CANCELLED => 'Campaign was cancelled',
+      self::ARCHIVED => 'Campaign is archived',
+      self::DELETED => 'Campaign has been deleted',
+      self::COMPLETED => 'Campaign has completed sending',
     };
   }
 

@@ -4,8 +4,8 @@ namespace Database\Factories;
 
 use App\Models\EmailTemplate;
 use App\Models\Team;
-use App\Enums\TemplateCategory;
-use App\Enums\TemplateType;
+use App\Enums\EmailTemplateCategory;
+use App\Enums\EmailTemplateType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class EmailTemplateFactory extends Factory
@@ -24,16 +24,68 @@ class EmailTemplateFactory extends Factory
       'subject' => $this->faker->sentence(),
       'content' => $this->faker->randomHtml(),
       'preview_text' => $this->faker->sentence(),
-      'category' => $this->faker->randomElement(TemplateCategory::cases()),
-      'type' => $this->faker->randomElement(TemplateType::cases()),
+      'category' => $this->faker->randomElement(EmailTemplateCategory::cases()),
+      'type' => $this->faker->randomElement(EmailTemplateType::cases()),
       'design' => [
-        'layout' => 'default',
-        'colors' => [
-          'primary' => '#000000',
-          'secondary' => '#ffffff'
-        ]
+        'counters' => [
+          'u_row' => 13,
+          'u_column' => 16,
+          'u_content_menu' => 3,
+          'u_content_text' => 11,
+          'u_content_image' => 3,
+          'u_content_button' => 4,
+          'u_content_social' => 1,
+          'u_content_divider' => 6
+        ],
+        'body' => [
+          'rows' => [[
+            'cells' => [1],
+            'columns' => [[
+              'contents' => [[
+                'type' => 'menu',
+                'values' => [
+                  'containerPadding' => '0px',
+                  '_meta' => [
+                    'htmlID' => 'u_content_menu_3',
+                    'htmlClassNames' => 'u_content_menu'
+                  ],
+                  'selectable' => true,
+                  'draggable' => true,
+                  'duplicatable' => true,
+                  'deletable' => true,
+                  'backgroundColor' => '#ffffff',
+                  'textAlign' => 'center',
+                  'hideDesktop' => false,
+                  'hideMobile' => false,
+                  'items' => [
+                    ['label' => '{{ company_name }}', 'url' => '{{ website_url }}', '_meta' => ['htmlID' => 'u_menu_item_1']],
+                    ['label' => '{{ company_name }}', 'url' => '{{ website_url }}', '_meta' => ['htmlID' => 'u_menu_item_2']]
+                  ]
+                ]
+              ]],
+              'values' => [
+                '_meta' => [
+                  'htmlID' => 'u_column_1',
+                  'htmlClassNames' => 'u_column'
+                ],
+                'border' => [],
+                'padding' => '0px',
+                'backgroundColor' => ''
+              ]
+            ]]
+          ]],
+          'values' => [
+            'backgroundColor' => '#ffffff',
+            'containerPadding' => '0px',
+            'fontFamily' => [
+              'label' => 'Geist Mono',
+              'value' => '"Geist Mono",monospace'
+            ]
+          ],
+        ],
+        'schemaVersion' => 5,
       ],
-      'variables' => [
+      'merge_tags' => [
         'company_name' => 'Example Inc.',
         'website_url' => 'https://example.com'
       ],
@@ -44,14 +96,14 @@ class EmailTemplateFactory extends Factory
   public function html(): self
   {
     return $this->state(fn(array $attributes) => [
-      'type' => TemplateType::HTML
+      'type' => EmailTemplateType::HTML
     ]);
   }
 
   public function marketing(): self
   {
     return $this->state(fn(array $attributes) => [
-      'category' => TemplateCategory::MARKETING
+      'category' => EmailTemplateCategory::MARKETING
     ]);
   }
 

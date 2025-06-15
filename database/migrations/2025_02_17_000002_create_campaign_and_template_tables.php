@@ -24,7 +24,7 @@ return new class extends Migration {
 
       // Template Design & Variables
       $table->json('design')->nullable();
-      $table->json('variables')->nullable();
+      $table->json('merge_tags')->nullable();
       $table->json('tags')->nullable();
 
       // SendGrid Integration
@@ -51,6 +51,7 @@ return new class extends Migration {
       $table->string('description')->nullable();
       $table->string('subject');
       $table->text('content')->nullable();
+      $table->json('design')->nullable();
       $table->string('preview_text')->nullable();
       $table->string('from_name')->nullable();
       $table->string('from_email')->nullable();
@@ -62,14 +63,9 @@ return new class extends Migration {
       $table->timestamp('started_at')->nullable();
       $table->timestamp('completed_at')->nullable();
 
-      // Recipients
-      $table->json('recipient_lists')->nullable();
-      $table->json('recipient_segments')->nullable();
-      $table->integer('total_recipients')->default(0);
-
       // SendGrid Integration
       $table->string('sendgrid_campaign_id')->nullable();
-      $table->json('sendgrid_settings')->nullable();
+      $table->json('merge_tags')->nullable();
 
       $table->timestamps();
       $table->softDeletes();

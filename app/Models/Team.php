@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Traits\HasUuid;
-use Illuminate\Database\Eloquent\{Model, SoftDeletes, Factories\HasFactory};
+use Illuminate\Database\Eloquent\{Casts\Attribute, Model, SoftDeletes, Factories\HasFactory};
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Traits\HasRoles;
@@ -204,7 +204,7 @@ class Team extends Model
 
   public function mailingLists(): HasMany
   {
-      return $this->hasMany(MailingList::class);
+    return $this->hasMany(MailingList::class);
   }
 
   // Replace existing settings methods with organization methods
@@ -223,14 +223,20 @@ class Team extends Model
     return $this->organization->getQuotaLimits();
   }
 
-  public function getStatsAttribute(): array
+  public function stats(): Attribute
   {
-    return [
-      'campaigns_count' => $this->campaigns()->count(),
-      'subscribers_count' => $this->subscribers()->count(),
-      'templates_count' => $this->templates()->count(),
-      'members_count' => $this->users()->count(),
-    ];
+    return Attribute::make(
+      get: function () {
+        $this->loadCount(['campaigns', 'subscribers', 'templates', 'users']);
+
+        return [
+          'campaigns_count' => $this->campaigns_count,
+          'subscribers_count' => $this->subscribers_count,
+          'templates_count' => $this->templates_count,
+          'members_count' => $this->users_count,
+        ];
+      }
+    );
   }
 
   public function getRecentActivitiesAttribute(): array

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Enums\ListType;
 use App\Traits\{HasTeamScope, HasUuid};
-use Illuminate\Database\Eloquent\{Model, SoftDeletes};
+use Illuminate\Database\Eloquent\{Attributes\Scope, Builder, Model, SoftDeletes};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 
@@ -53,22 +53,26 @@ class MailingList extends Model
       ->wherePivot('status', 'subscribed');
   }
 
-  public function campaigns(): HasMany
+  public function campaigns(): BelongsToMany
   {
-    return $this->hasMany(Campaign::class);
+    return $this->belongsToMany(Campaign::class, 'campaign_lists')
+      ->withTimestamps();
   }
 
-  public function scopeStandard($query)
+  #[Scope]
+  public function standard(Builder $query): Builder
   {
     return $query->where('type', ListType::STANDARD);
   }
 
-  public function scopeSystem($query)
+  #[Scope]
+  public function system($query)
   {
     return $query->where('type', ListType::SYSTEM);
   }
 
-  public function scopeSegment($query)
+  #[Scope]
+  public function segment($query)
   {
     return $query->where('type', ListType::SEGMENT);
   }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Campaign;
+use App\Models\EmailTemplate;
 use App\Models\Subscriber;
 use App\Enums\CampaignStatus;
 use App\Enums\EventType;
@@ -31,6 +32,7 @@ class CampaignService
         'design' => $data['content']['design'],
         'from_name' => $data['from_name'],
         'from_email' => $data['from_email'],
+        'merge_tags' => $data['merge_tags'] ?? [],
         'reply_to' => $data['reply_to'] ?? $data['from_email'],
         'status' => isset($data['scheduled_at'])
           ? CampaignStatus::SCHEDULED
@@ -39,7 +41,9 @@ class CampaignService
       ]);
 
       // Attach mailing lists
-      $campaign->mailingLists()->attach($data['list_ids']);
+      if (!empty($data['mailing_list_ids'])) {
+        $campaign->mailingLists()->attach($data['mailing_list_ids']);
+      }
 
       // Create initial stats record
       $totalRecipients = $campaign->mailingLists()
@@ -66,13 +70,32 @@ class CampaignService
     });
   }
 
-  public function send(Campaign $campaign): void
+  public function update(Campaign $campaign, array $data): Campaign
   {
-    if ($campaign->status !== 'draft' && $campaign->status !== 'scheduled') {
-      throw new \Exception('Campaign cannot be sent');
+    // If template changed, copy new template data
+    if (isset($data['template_id']) && !$campaign->usesTemplate($data['template_id'])) {
+      $campaign->template_id = $data['template_id'];
+      $campaign->copyFromTemplate(EmailTemplate::find($data['template_id']));
     }
 
-    $campaign->update(['status' => 'sending', 'started_at' => now()]);
+    // Update other campaign-specific data
+    $campaign->update($data);
+
+    return $campaign;
+  }
+
+  public function send(Campaign $campaign): void
+  {
+    $errors = $this->validateBeforeSend($campaign);
+
+    if (!empty($errors)) {
+      throw new \Exception(implode(', ', $errors));
+    }
+
+    $campaign->update([
+      'status' => CampaignStatus::SENDING,
+      'started_at' => now()
+    ]);
 
     // Queue campaign sending in batches
     $campaign->mailingLists()

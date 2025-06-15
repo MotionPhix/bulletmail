@@ -116,6 +116,15 @@ Route::middleware('auth:sanctum')
 
     });
 
+    Route::prefix('campaigns')
+    ->controller(\App\Http\Controllers\Api\Campaign\CampaignController::class)
+    ->group(function () {
+
+      Route::get('/p/{campaign:uuid}', 'preview')
+        ->name('api.campaigns.preview');
+
+    });
+
     /*Route::get('/teams/{team}/analytics', function (Request $request, $team) {
       return $request->user()->currentTeam->analytics()->get();
     });

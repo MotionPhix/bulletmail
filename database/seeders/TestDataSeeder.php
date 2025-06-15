@@ -69,33 +69,47 @@ class TestDataSeeder extends Seeder
     $this->createSubscribers($team);
   }
 
-  private function createTemplates($team, $owner)
+  private function createTemplates($team, $owner): void
   {
     collect(range(1, 5))->each(
-      fn($i) =>
-      EmailTemplate::factory()
+      fn($i) => EmailTemplate::factory()
         ->forTeam($team)
         ->create([
+          'status' => match ($i) {
+            1 => 'draft',
+            2 => 'published',
+            3 => 'archived',
+            4 => 'deleted',
+          },
           'category' => match ($i % 3) {
             0 => 'newsletter',
             1 => 'marketing',
             2 => 'transactional',
+            3 => 'announcement',
+            4 => 'onboarding',
+            5 => 'notification',
           }
         ])
     );
   }
 
-  private function createCampaigns($team, $owner)
+  private function createCampaigns($team, $owner): void
   {
     collect(range(1, 3))->each(
-      fn($i) =>
-      Campaign::factory()
+      fn($i) => Campaign::factory()
         ->forTeam($team)
         ->create([
           'status' => match ($i) {
             1 => 'draft',
             2 => 'scheduled',
             3 => 'sent',
+            4 => 'archived',
+            5 => 'cancelled',
+            6 => 'sending',
+            7 => 'paused',
+            8 => 'failed',
+            9 => 'deleted',
+            10 => 'completed'
           }
         ])
     );
@@ -106,12 +120,11 @@ class TestDataSeeder extends Seeder
     collect(range(1, 100))
       ->chunk(20)
       ->each(
-        fn($chunk) =>
-        Subscriber::factory()
+        fn($chunk) => Subscriber::factory()
           ->count($chunk->count())
           ->forTeam($team)
           ->create([
-            'status' => $chunk->first() % 2 === 0 ? 'subscribed' : 'unsubscribed'
+            'status' => fake()->randomElement(['subscribed', 'unsubscribed'])
           ])
       );
   }

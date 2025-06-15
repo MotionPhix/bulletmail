@@ -98,13 +98,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::prefix('s')
   ->controller(\App\Http\Controllers\SubscriberController::class)
   ->group(function () {
-    Route::get('/unsubscribe/{uuid}', 'unsubscribe')
+    Route::get('/unsubscribe/{subscriber:uuid}', 'unsubscribe')
       ->name('subscribers.unsubscribe');
 
-    Route::get('/preferences/{uuid}', 'preferences')
+    Route::get('/preferences/{subscriber:uuid}', 'preferences')
       ->name('subscribers.preferences');
 
-    Route::put('/preferences/{uuid}', 'updatePreferences')
+    Route::put('/preferences/{subscriber:uuid}', 'updatePreferences')
       ->name('subscribers.preferences.update');
   });
 

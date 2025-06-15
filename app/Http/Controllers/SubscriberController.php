@@ -198,10 +198,8 @@ class SubscriberController extends Controller
     return back()->with('success', 'Subscriber removed from list');
   }
 
-  public function unsubscribe(Request $request, string $uuid)
+  public function unsubscribe(Request $request, Subscriber $subscriber)
   {
-    $subscriber = Subscriber::whereUuid($uuid)->firstOrFail();
-
     $this->subscriberService->unsubscribe(
       $subscriber,
       $request->input('reason'),

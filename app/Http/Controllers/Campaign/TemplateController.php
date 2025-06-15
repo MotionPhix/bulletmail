@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\TemplateCategory;
+use App\Enums\EmailTemplateCategory;
+use App\Enums\EmailTemplateStatus;
+use App\Enums\EmailTemplateType;
 use App\Http\Controllers\Controller;
 use App\Models\EmailTemplate;
+use App\Models\MergeTag;
 use App\Services\TemplateService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -18,19 +21,41 @@ class TemplateController extends Controller
     protected TemplateService $templateService
   ) {}
 
-  public function index(Request $request)
+  public function index(Request $request): \Inertia\Response
   {
     $query = EmailTemplate::query()
       ->where('team_id', auth()->user()->current_team_id)
-      ->select(['id', 'uuid', 'name', 'description', 'subject', 'category', 'type', 'created_at']);
+      ->select(['id', 'uuid', 'name', 'description', 'subject', 'category', 'type', 'status']);
 
     if ($search = $request->input('search')) {
-      $query->where('name', 'like', "%{$search}%");
+      $query->where('name', 'like', "%{$search}%")
+        ->orWhere('subject', 'like', "%{$search}%")
+        ->orWhere('description', 'like', "%{$search}%");
     }
+
+    if ($category = $request->input('category')) {
+      $query->where('category', $category);
+    }
+
+    if ($type = $request->input('type')) {
+      $query->where('type', $type);
+    }
+
+    if ($status = $request->input('status')) {
+      $query->where('status', $status);
+    }
+
+    // Sorting
+    $sortField = $request->input('sort', 'category');
+    $sortDirection = $request->input('direction', 'desc');
+    $query->orderBy($sortField, $sortDirection);
 
     return Inertia::render('templates/Index', [
       'templates' => $query->paginate(10)->withQueryString(),
-      'filters' => $request->only(['search']),
+      'categories' => EmailTemplateCategory::getLabels(),
+      'types' => EmailTemplateType::getLabels(),
+      'statuses' => EmailTemplateStatus::getLabels(),
+      'filters' => $request->only(['search', 'category', 'type', 'status', 'sort', 'direction']),
     ]);
   }
 
@@ -58,7 +83,7 @@ class TemplateController extends Controller
     return redirect()->route('templates.index')->with('success', 'Template created successfully.');
   }
 
-  public function edit(EmailTemplate $template)
+  public function edit(EmailTemplate $template): \Inertia\Response
   {
     // $this->authorize('update', $template);
 
@@ -68,10 +93,28 @@ class TemplateController extends Controller
         'variables' => $template->variables ?? [],
         'campaigns_count' => $template->campaigns()->count()
       ]),
-      'categories' => collect(TemplateCategory::cases())->map(fn($category) => [
+      'categories' => collect(EmailTemplateCategory::cases())->map(fn($category) => [
         'value' => $category->value,
         'label' => str($category->value)->title()->toString()
-      ])->values()->all()
+      ])->values()->all(),
+      'types' => collect(['drag-drop', 'html', 'text'])->map(fn($type) => [
+        'value' => $type,
+        'label' => str($type)->title()->toString()
+      ])->values()->all(),
+      'mergeTags' => MergeTag::query()
+        ->select(['id', 'key', 'name', 'description', 'default', 'category'])
+        ->orderBy('category')
+        ->orderBy('name')
+        ->get()
+        ->groupBy('category')
+        ->map(fn($tags) => $tags->map(fn($tag) => [
+          'id' => $tag->id,
+          'key' => $tag->key,
+          'name' => $tag->name,
+          'description' => $tag->description,
+          'default' => $tag->default ?? ''
+        ]))
+        ->toArray()
     ]);
   }
 

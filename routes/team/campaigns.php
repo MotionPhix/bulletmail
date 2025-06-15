@@ -14,6 +14,7 @@ Route::controller(CampaignController::class)
     Route::get('/create', 'create')->name('campaigns.create');
     Route::post('/', 'store')->name('campaigns.store');
     Route::get('/s/{campaign:uuid}', 'show')->name('campaigns.show');
+    Route::get('/preview/{campaign:uuid}', 'preview')->name('campaigns.preview');
     Route::get('/e/{campaign:uuid}', 'edit')->name('campaigns.edit');
     Route::put('/u/{campaign:uuid}', 'update')->name('campaigns.update');
     Route::delete('/d/{campaign:uuid}', 'destroy')->name('campaigns.destroy');

@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use App\Traits\{HasTeamScope, HasUuid};
-use App\Enums\{TemplateCategory, TemplateType};
-use Illuminate\Database\Eloquent\{Model, SoftDeletes};
+use App\Enums\{EmailTemplateCategory, EmailTemplateType};
+use Illuminate\Database\Eloquent\{Attributes\Scope, Builder, Model, SoftDeletes};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 
@@ -23,17 +23,17 @@ class EmailTemplate extends Model
     'category',
     'type',
     'design',
-    'variables',
+    'merge_tags',
     'tags',
     'sendgrid_template_id',
     'last_synced_at'
   ];
 
   protected $casts = [
-    'category' => TemplateCategory::class,
-    'type' => TemplateType::class,
+    'category' => EmailTemplateCategory::class,
+    'type' => EmailTemplateType::class,
     'design' => 'array',
-    'variables' => 'array',
+    'merge_tags' => 'array',
     'tags' => 'array',
     'last_synced_at' => 'datetime'
   ];
@@ -46,6 +46,11 @@ class EmailTemplate extends Model
   public function campaigns(): HasMany
   {
     return $this->hasMany(Campaign::class, 'template_id');
+  }
+
+  public function team(): BelongsTo
+  {
+    return $this->belongsTo(Team::class);
   }
 
   public function duplicate(): self
@@ -85,27 +90,31 @@ class EmailTemplate extends Model
     }
   }
 
-  protected static function booted()
+  protected static function boot(): void
   {
+    parent::boot();
+
     static::created(function (EmailTemplate $template) {
-      if ($template->type === TemplateType::HTML) {
+      if ($template->type === EmailTemplateType::HTML) {
         $template->syncWithSendGrid();
       }
     });
 
     static::updated(function (EmailTemplate $template) {
-      if ($template->type === TemplateType::HTML && $template->isDirty('content')) {
+      if ($template->type === EmailTemplateType::HTML && $template->isDirty('content')) {
         $template->syncWithSendGrid();
       }
     });
   }
 
-  public function scopeByType($query, TemplateType $type)
+  #[Scope]
+  public function byType(Builder $query, EmailTemplateType $type): Builder
   {
     return $query->where('type', $type);
   }
 
-  public function scopeByCategory($query, TemplateCategory $category)
+  #[Scope]
+  public function byCategory(Builder $query, EmailTemplateCategory $category): Builder
   {
     return $query->where('category', $category);
   }

@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\EmailTemplate;
 use App\Services\SendGrid\SendGridService;
-use App\Enums\TemplateType;
+use App\Enums\EmailTemplateType;
 
 class TemplateService extends BaseService
 {

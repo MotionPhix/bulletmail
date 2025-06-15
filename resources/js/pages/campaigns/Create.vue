@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Mail, Calendar, Users } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useDark, useStorage } from '@vueuse/core';
 import InputError from '@/components/InputError.vue';
 import { EmailEditor } from 'vue-email-editor';
 import axios from 'axios';
+import Heading from '@/components/Heading.vue';
 
 const props = defineProps<{
   templates: Array<{ id: number; uuid: string; name: string }>;
@@ -23,8 +24,7 @@ const props = defineProps<{
 
 const page = usePage().props.auth;
 const activeTab = useStorage('campaign', 'details');
-const previewMode = ref(false);
-const emailEditor = ref(null)
+const campaignCreator = ref(null)
 const unlayerProjectId = parseInt(import.meta.env.VITE_UNLAYER_PROJECT_ID);
 const isDarkMode = useDark();
 
@@ -80,35 +80,28 @@ const breadcrumbs = [
   { title: 'Create Campaign', href: '#' },
 ];
 
-const editorLoaded = () => {
+const editorLoaded = async () => {
+  await nextTick()
+
   if (form.template_id) {
-    loadTemplate(form.template_id);
+    await loadTemplate(form.template_id);
   }
 
   // Set merge tags
-  emailEditor.value?.editor.setMergeTags({
+  campaignCreator.value?.editor.setMergeTags({
     first_name: 'First Name',
     last_name: 'Last Name',
     email: 'Email Address',
   });
-
-  // Set custom CSS
-  /*emailEditor.value?.editor.setCustomCSS({
-    '.unlayer-editor': {
-      'font-family': 'Geist Mono, monospace',
-      'font-size': '14px',
-      'color': '#333',
-    },
-  });*/
 };
 
 const saveDesign = async () => {
   try {
-    emailEditor.value?.editor.saveDesign(design => {
+    campaignCreator.value?.editor.saveDesign(design => {
       form.content.design = design;
     });
 
-    emailEditor.value?.editor.exportHtml(data => {
+    campaignCreator.value?.editor.exportHtml(data => {
       form.content.html = data.html;
     });
   } catch (error) {
@@ -118,21 +111,28 @@ const saveDesign = async () => {
 
 const loadTemplate = async (templateId: number) => {
   try {
-    const response = await axios.get(route('api.templates.show', templateId));
-    const template = response.data;
+    const resp = await axios.get(route('api.templates.show', templateId));
+    const template = resp.data.template;
 
-    if (template && template.design) {
-      const design = typeof template.design === 'string'
-        ? JSON.parse(template.design)
-        : template.design;
+    // Ensure we have valid design data
+    const design = template.design
+      ? (typeof template.design === 'string' ? JSON.parse(template.design) : template.design)
+      : {};
 
-      emailEditor.value?.editor.loadDesign(design);
+    campaignCreator.value.editor.loadDesign(design);
 
-      form.content = {
-        design: design,
-        html: template.content
-      };
-    }
+    campaignCreator.value.editor.setBodyValues({
+      preheaderText: template.preview_text || form.preview_text,
+      fontFamily: {
+        label: 'Geist Mono',
+        value: "'Geist Mono',monospace"
+      },
+    });
+
+    form.content = {
+      design: design,
+      html: template.content || ''
+    };
   } catch (error) {
     console.error('Error loading template:', error);
   }
@@ -147,11 +147,15 @@ const isValid = computed(() => {
   return requiredFields.every(field => form[field]) && form.list_ids.length > 0;
 });
 
-watch(() => form.template_id, (newId) => {
-  if (newId && emailEditor.value?.editor) {
-    loadTemplate(newId);
+watch(() => form.template_id, async (newId) => {
+  if (newId && campaignCreator.value?.editor) {
+    try {
+      await loadTemplate(newId);
+    } catch (error) {
+      console.error('Error loading template:', error);
+    }
   }
-});
+}, { immediate: true });
 
 const submit = () => {
   form.post(route('app.campaigns.store'), {
@@ -160,8 +164,13 @@ const submit = () => {
 };
 
 onMounted(() => {
-  if (emailEditor.value?.editor) {
-    emailEditor.value.editor.addEventListener('design:updated', saveDesign);
+  if (campaignCreator.value?.editor) {
+    campaignCreator.value.editor.addEventListener('design:updated', saveDesign);
+    campaignCreator.value.editor.addEventListener('editor:ready', () => {
+      if (form.template_id) {
+        loadTemplate(form.template_id);
+      }
+    });
   }
 });
 </script>
@@ -173,11 +182,13 @@ onMounted(() => {
     <div class="max-w-5xl p-6">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-semibold">Create Campaign</h1>
-          <p class="text-muted-foreground">Design and schedule your email campaign</p>
+          <Heading
+            title="Create Campaign"
+            description="Design and schedule your email campaign"
+          />
         </div>
 
-        <div class="flex gap-3">
+        <div class="flex gap-x-2">
           <Button
             variant="outline"
             :href="route('app.campaigns.index')">
@@ -289,13 +300,6 @@ onMounted(() => {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    @click="previewMode = !previewMode">
-                    {{ previewMode ? 'Edit Mode' : 'Preview' }}
-                  </Button>
                 </div>
               </CardTitle>
 
@@ -309,7 +313,7 @@ onMounted(() => {
               <div class="border rounded-2xl">
                 <div class="container">
                   <EmailEditor
-                    ref="emailEditor"
+                    ref="campaignCreator"
                     v-on:load="editorLoaded"
                     :appearance="appearance"
                     :project-id="unlayerProjectId"
@@ -332,6 +336,7 @@ onMounted(() => {
               <CardTitle>Select Recipients</CardTitle>
               <CardDescription>Choose who will receive this campaign</CardDescription>
             </CardHeader>
+
             <CardContent>
               <ScrollArea class="h-72">
                 <div class="space-y-4">

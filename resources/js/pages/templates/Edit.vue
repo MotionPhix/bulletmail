@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmailEditor } from 'vue-email-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { onMounted, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { ArrowLeftIcon } from 'lucide-vue-next';
+import { ref } from 'vue';
+import { Badge } from '@/components/ui/badge';
 
 const props = defineProps<{
   template: {
@@ -23,14 +24,28 @@ const props = defineProps<{
     category: string;
     type: string;
     design: any;
-    variables: any;
+    merge_tags: Array<{
+      key: string;
+      name: string;
+      description: string;
+      default: string;
+      category: string;
+      required: boolean;
+    }>;
     tags: string[];
     campaigns_count: number;
   };
   categories: Array<{ value: string; label: string }>;
+  mergeTags: Record<string, Array<{
+    id: number;
+    key: string;
+    name: string;
+    description: string;
+    default: string;
+  }>>;
 }>();
 
-const unlayerEmailEditor = ref();
+const templateEditor = ref();
 
 const unlayerProjectId = parseInt(import.meta.env.VITE_UNLAYER_PROJECT_ID);
 
@@ -63,44 +78,104 @@ const appearance = {
 };
 
 const tools = {
+  image: {
+    enabled: true,
+  },
+  social: {
+    enabled: true,
+  },
   heading: {
     properties: {
       text: {
-        value: 'Email Template',
+        value: 'Enter your heading here',
       },
     },
   },
 };
 
 const editorLoaded = () => {
-  if (form.design && Object.keys(form.design).length > 0) {
-    unlayerEmailEditor.value.editor.loadDesign(JSON.parse(JSON.stringify(form.design)));
+  if (form.design) {
+    try {
+      const designData = form.design
+        ? (typeof form.design === 'string' ? JSON.parse(form.design) : form.design)
+        : {};
+
+      if (designData.body) {
+        const flattenedTags = Object.values(props.mergeTags).flat();
+
+        templateEditor.value?.editor.setMergeTags(
+          flattenedTags.reduce((acc, tag) => ({
+            ...acc,
+            [tag.key]: {
+              name: tag.name,
+              value: `{{${tag.key}}}`,
+              required: tag.required
+            }
+          }), {})
+        );
+
+        templateEditor.value.editor.loadDesign(JSON.parse(JSON.stringify(designData)));
+      } else {
+        // Create a basic Unlayer design structure
+        const design = {
+          body: {
+            rows: [],
+            values: {
+              backgroundColor: designData?.colors?.primary || '#ffffff',
+              containerPadding: '0px',
+              fontFamily: { label: 'Geist Mono', value: '"Geist Mono",monospace' }
+            }
+          },
+          schemaVersion: 21
+        };
+
+        templateEditor.value.editor.loadDesign(design);
+      }
+    } catch (error) {
+      console.error('Error loading design:', error);
+    }
   }
 };
 
-const saveDesign = () => {
+const saveDesign = async () => {
   try {
-    unlayerEmailEditor.value.editor.saveDesign((design) => {
-      form.design = design;
+    const design = await new Promise((resolve) => {
+      templateEditor.value.editor.saveDesign((design) => {
+        resolve(design);
+      });
     });
 
-    unlayerEmailEditor.value.editor.exportHtml((data) => {
-      form.content = data.html;
+    const { html } = await new Promise((resolve) => {
+      templateEditor.value.editor.exportHtml((data) => {
+        resolve(data);
+      });
     });
 
-    // Set the preheader text in the email editor
-    unlayerEmailEditor.value.editor.setBodyValues({
-      preheaderText: form.preview_text,
-    });
+    form.design = design;
+    form.content = html;
+
+    // Update preview text if available
+    if (form.preview_text) {
+      templateEditor.value.editor.setBodyValues({
+        preheaderText: form.preview_text,
+      });
+    }
   } catch (error) {
     console.error('Error saving design:', error);
   }
 };
 
 const submit = async () => {
-  form.put(route('app.templates.update', props.template.uuid), {
-    preserveScroll: true,
-  });
+  try {
+    // Get final design and HTML before submitting
+    await saveDesign();
+
+    await form.put(route('app.templates.update', props.template.uuid), {
+      preserveScroll: true,
+    });
+  } catch (error) {
+    console.error('Error submitting template:', error);
+  }
 };
 
 const breadcrumbs = [
@@ -108,14 +183,6 @@ const breadcrumbs = [
   { title: 'Templates', href: route('app.templates.index') },
   { title: 'Edit Template', href: '#' },
 ];
-
-onMounted(() => {
-  if (unlayerEmailEditor.value?.editor) {
-    unlayerEmailEditor.value.editor.addEventListener('design:updated', function () {
-      saveDesign();
-    });
-  }
-});
 </script>
 
 <template>
@@ -214,23 +281,45 @@ onMounted(() => {
 
         <Card>
           <CardHeader>
+            <CardTitle>Available Merge Tags</CardTitle>
+            <CardDescription>Tags you can use in your template</CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            <div class="grid gap-4">
+              <div v-for="(tags, category) in mergeTags" :key="category">
+                <h3 class="font-medium mb-2 capitalize">{{ category }}</h3>
+                <div class="space-y-2">
+                  <div v-for="tag in tags" :key="tag.key" class="flex justify-between items-center p-2 bg-muted rounded-md">
+                    <div>
+                      <p class="font-mono text-sm" v-text="`{{${tag.key}}}`"></p>
+                      <p class="text-sm text-muted-foreground">{{ tag.description }}</p>
+                    </div>
+                    <Badge v-if="tag.required" variant="secondary">Required</Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Template Design</CardTitle>
             <CardDescription>Design your email template</CardDescription>
           </CardHeader>
 
           <CardContent>
             <div class="overflow-hidden rounded-lg border">
-              <div class="container">
+              <div class="editor-container">
                 <EmailEditor
-                  ref="unlayerEmailEditor"
+                  ref="templateEditor"
                   :projectId="unlayerProjectId"
                   :appearance="appearance"
                   displayMode="email"
                   :tools="tools"
                   minHeight="700px"
                   v-on:load="editorLoaded"
-                  @editor-loaded="editorLoaded"
-                  @design-updated="saveDesign"
                 />
               </div>
             </div>
@@ -258,7 +347,7 @@ a.blockbuilder-branding {
   overflow-x: hidden !important;
 }
 
-.container {
+.editor-container {
   border-radius: 1rem;
   overflow: hidden;
 }
@@ -269,19 +358,5 @@ a.blockbuilder-branding {
 
 #editor {
   width: 20px !important;
-}
-
-#bar {
-  flex: 1;
-  background-color: #40b883;
-  padding: 10px;
-  display: flex;
-  max-height: 50px;
-}
-
-#bar h1 {
-  flex: 1;
-  font-size: 16px;
-  text-align: left;
 }
 </style>
